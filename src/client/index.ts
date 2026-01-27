@@ -23,6 +23,26 @@ import type {
   PaymentMethod,
   PaginatedResponse,
   APIErrorResponse,
+  // Portal types
+  CustomerPortalData,
+  PortalUpdateSubscriptionInput,
+  PortalUpdateSubscriptionResponse,
+  PortalCancelSubscriptionInput,
+  PortalCancelSubscriptionResponse,
+  AddPaymentMethodInput,
+  AddPaymentMethodResponse,
+  SetupIntentResponse,
+  RetryInvoiceResponse,
+  UpdateCustomerBillingInput,
+  CustomerBillingInfo,
+  // Checkout types
+  CreateCheckoutInput,
+  CreateCheckoutResponse,
+  ConfirmCheckoutResponse,
+  // Pricing table types
+  GetProductsResponse,
+  // Upgrade nudge types
+  UsageCheckResponse,
 } from './types'
 
 export * from './types'
@@ -62,17 +82,17 @@ export interface BillingOSClientOptions {
  * Main BillingOS API client
  */
 export class BillingOSClient {
-  private apiKey: string
+  private sessionToken: string
   private baseUrl: string
   private headers: Record<string, string>
   private timeout: number
 
-  constructor(apiKey: string, options: BillingOSClientOptions = {}) {
-    if (!apiKey) {
-      throw new Error('API key is required')
+  constructor(sessionToken: string, options: BillingOSClientOptions = {}) {
+    if (!sessionToken) {
+      throw new Error('Session token is required')
     }
 
-    this.apiKey = apiKey
+    this.sessionToken = sessionToken
     this.timeout = options.timeout || 30000
 
     // Set base URL based on environment
@@ -87,7 +107,7 @@ export class BillingOSClient {
     // Setup default headers
     this.headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.apiKey}`,
+      'Authorization': `Bearer ${this.sessionToken}`,
       'X-BillingOS-Version': options.version || '2026-01-01',
       ...options.headers,
     }
@@ -413,14 +433,145 @@ export class BillingOSClient {
   async setDefaultPaymentMethod(id: string): Promise<void> {
     return this.post<void>(`/payment-methods/${id}/set-default`)
   }
+
+  // =============================================================================
+  // CUSTOMER PORTAL API
+  // =============================================================================
+
+  /**
+   * Get all portal data for the current customer
+   */
+  async getCustomerPortal(): Promise<CustomerPortalData> {
+    return this.get<CustomerPortalData>('/sdk/customer/portal')
+  }
+
+  /**
+   * Update subscription (upgrade/downgrade)
+   */
+  async updatePortalSubscription(
+    subscriptionId: string,
+    input: PortalUpdateSubscriptionInput
+  ): Promise<PortalUpdateSubscriptionResponse> {
+    return this.post<PortalUpdateSubscriptionResponse>(
+      `/sdk/subscriptions/${subscriptionId}/update`,
+      input
+    )
+  }
+
+  /**
+   * Cancel subscription with feedback
+   */
+  async cancelPortalSubscription(
+    subscriptionId: string,
+    input: PortalCancelSubscriptionInput
+  ): Promise<PortalCancelSubscriptionResponse> {
+    return this.post<PortalCancelSubscriptionResponse>(
+      `/sdk/subscriptions/${subscriptionId}/cancel`,
+      input
+    )
+  }
+
+  /**
+   * Reactivate a canceled subscription
+   */
+  async reactivatePortalSubscription(subscriptionId: string): Promise<void> {
+    return this.post<void>(`/sdk/subscriptions/${subscriptionId}/reactivate`)
+  }
+
+  /**
+   * Add a payment method
+   */
+  async addPaymentMethod(input: AddPaymentMethodInput): Promise<AddPaymentMethodResponse> {
+    return this.post<AddPaymentMethodResponse>('/sdk/payment-methods', input)
+  }
+
+  /**
+   * Get setup intent for adding a new card
+   */
+  async getSetupIntent(): Promise<SetupIntentResponse> {
+    return this.post<SetupIntentResponse>('/sdk/payment-methods/setup-intent')
+  }
+
+  /**
+   * Retry a failed invoice
+   */
+  async retryInvoice(
+    invoiceId: string,
+    paymentMethodId?: string
+  ): Promise<RetryInvoiceResponse> {
+    return this.post<RetryInvoiceResponse>(`/sdk/invoices/${invoiceId}/retry`, {
+      paymentMethodId,
+    })
+  }
+
+  /**
+   * Update customer billing information
+   */
+  async updateCustomerBilling(input: UpdateCustomerBillingInput): Promise<CustomerBillingInfo> {
+    return this.patch<CustomerBillingInfo>('/sdk/customer/billing', input)
+  }
+
+  // =============================================================================
+  // CHECKOUT API (Payment Bottom Sheet)
+  // =============================================================================
+
+  /**
+   * Create a checkout session for purchasing a subscription
+   */
+  async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResponse> {
+    return this.post<CreateCheckoutResponse>('/sdk/checkout/create', input)
+  }
+
+  /**
+   * Confirm a checkout after payment is processed
+   */
+  async confirmCheckout(
+    clientSecret: string,
+    paymentMethodId: string
+  ): Promise<ConfirmCheckoutResponse> {
+    return this.post<ConfirmCheckoutResponse>(
+      `/sdk/checkout/${clientSecret}/confirm`,
+      { paymentMethodId }
+    )
+  }
+
+  // =============================================================================
+  // PRICING TABLE API
+  // =============================================================================
+
+  /**
+   * Get all products for the pricing table
+   * @param planIds - Optional array of plan IDs to filter
+   */
+  async getProducts(planIds?: string[]): Promise<GetProductsResponse> {
+    const query = new URLSearchParams()
+    if (planIds && planIds.length > 0) {
+      query.set('planIds', planIds.join(','))
+    }
+    const queryString = query.toString()
+    return this.get<GetProductsResponse>(
+      `/v1/products${queryString ? `?${queryString}` : ''}`
+    )
+  }
+
+  // =============================================================================
+  // UPGRADE NUDGE API
+  // =============================================================================
+
+  /**
+   * Check usage and get nudge trigger if applicable
+   */
+  async checkUsage(): Promise<UsageCheckResponse> {
+    return this.get<UsageCheckResponse>('/sdk/usage/check')
+  }
 }
 
 /**
  * Factory function to create a BillingOS client instance
  */
 export function createBillingOSClient(
-  apiKey: string,
+  sessionToken: string,
   options?: BillingOSClientOptions
 ): BillingOSClient {
-  return new BillingOSClient(apiKey, options)
+  return new BillingOSClient(sessionToken, options)
 }

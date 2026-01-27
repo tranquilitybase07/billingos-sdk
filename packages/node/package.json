@@ -1,0 +1,57 @@
+{
+  "name": "@billingos/node",
+  "version": "0.1.0",
+  "description": "Node.js SDK for BillingOS - server-side billing, subscriptions, and session tokens",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./helpers/generic": {
+      "types": "./dist/helpers/generic.d.ts",
+      "import": "./dist/helpers/generic.js",
+      "require": "./dist/helpers/generic.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "billing",
+    "payments",
+    "stripe",
+    "subscriptions",
+    "saas",
+    "nodejs",
+    "sdk",
+    "backend",
+    "session-tokens",
+    "webhooks"
+  ],
+  "author": "BillingOS",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

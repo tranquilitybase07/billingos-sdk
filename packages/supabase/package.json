@@ -1,0 +1,57 @@
+{
+  "name": "@billingos/supabase",
+  "version": "0.1.0",
+  "description": "Supabase integration for BillingOS - one-line session token setup",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "billing",
+    "billingos",
+    "supabase",
+    "auth",
+    "session-tokens",
+    "nextjs",
+    "sdk"
+  ],
+  "author": "BillingOS",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "peerDependencies": {
+    "@supabase/ssr": "^0.6.0 || ^1.0.0",
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "dependencies": {
+    "@billingos/node": "workspace:*"
+  },
+  "devDependencies": {
+    "@supabase/ssr": "^0.6.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "@types/node": "^22.10.5",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
