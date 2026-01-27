@@ -82,17 +82,17 @@ export interface BillingOSClientOptions {
  * Main BillingOS API client
  */
 export class BillingOSClient {
-  private apiKey: string
+  private sessionToken: string
   private baseUrl: string
   private headers: Record<string, string>
   private timeout: number
 
-  constructor(apiKey: string, options: BillingOSClientOptions = {}) {
-    if (!apiKey) {
-      throw new Error('API key is required')
+  constructor(sessionToken: string, options: BillingOSClientOptions = {}) {
+    if (!sessionToken) {
+      throw new Error('Session token is required')
     }
 
-    this.apiKey = apiKey
+    this.sessionToken = sessionToken
     this.timeout = options.timeout || 30000
 
     // Set base URL based on environment
@@ -107,7 +107,7 @@ export class BillingOSClient {
     // Setup default headers
     this.headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.apiKey}`,
+      'Authorization': `Bearer ${this.sessionToken}`,
       'X-BillingOS-Version': options.version || '2026-01-01',
       ...options.headers,
     }
@@ -550,7 +550,7 @@ export class BillingOSClient {
     }
     const queryString = query.toString()
     return this.get<GetProductsResponse>(
-      `/sdk/products${queryString ? `?${queryString}` : ''}`
+      `/v1/products${queryString ? `?${queryString}` : ''}`
     )
   }
 
@@ -570,8 +570,8 @@ export class BillingOSClient {
  * Factory function to create a BillingOS client instance
  */
 export function createBillingOSClient(
-  apiKey: string,
+  sessionToken: string,
   options?: BillingOSClientOptions
 ): BillingOSClient {
-  return new BillingOSClient(apiKey, options)
+  return new BillingOSClient(sessionToken, options)
 }
