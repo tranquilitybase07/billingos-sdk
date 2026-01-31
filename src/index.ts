@@ -1,5 +1,8 @@
 // BillingOS SDK - Main Entry Point
 
+// Import global styles (will be bundled)
+import './styles/globals.css'
+
 // Client
 export * from './client'
 

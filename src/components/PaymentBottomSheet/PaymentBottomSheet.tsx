@@ -9,6 +9,7 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '../ui/drawer'
+import { ErrorBoundary } from '../ErrorBoundary'
 import { Card, CardContent } from '../ui/card'
 import { Badge } from '../ui/badge'
 import { Skeleton } from '../ui/skeleton'
@@ -19,6 +20,7 @@ import { useBillingOS } from '../../providers/BillingOSProvider'
 import { useCreateCheckout } from './hooks/useCheckout'
 import { PaymentForm } from './PaymentForm'
 import { DemoPaymentForm } from './DemoPaymentForm'
+import { BILLINGOS_STRIPE_PUBLISHABLE_KEY, isValidStripeKey, isValidClientSecret } from '../../config/stripe'
 
 export interface PaymentBottomSheetProps {
   /**
@@ -62,12 +64,31 @@ export function PaymentBottomSheet({
   existingSubscriptionId,
   theme,
 }: PaymentBottomSheetProps) {
-  const { customerId } = useBillingOS()
+  // Debug logging
+  console.log('[PaymentBottomSheet v0.1.3] Rendering with checkout fix:', {
+    priceId,
+    isOpen,
+    existingSubscriptionId,
+    theme
+  })
+
+  const { customerEmail, customerName } = useBillingOS()
   const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null)
   const [sheetState, setSheetState] = React.useState<SheetState>('loading')
   const [error, setError] = React.useState<string | null>(null)
   const [isProcessing, setIsProcessing] = React.useState(false)
   const [isDemoMode, setIsDemoMode] = React.useState(false)
+
+  // Log state changes
+  React.useEffect(() => {
+    console.log('[PaymentBottomSheet] State changed:', {
+      sheetState,
+      error,
+      isProcessing,
+      isDemoMode,
+      hasStripePromise: !!stripePromise
+    })
+  }, [sheetState, error, isProcessing, isDemoMode, stripePromise])
 
   // Create checkout session
   const {
@@ -77,42 +98,56 @@ export function PaymentBottomSheet({
   } = useCreateCheckout(
     isOpen
       ? {
-          priceId,
-          customerId: customerId || '',
-          existingSubscriptionId,
-        }
+        priceId,
+        customerEmail,
+        customerName,
+        existingSubscriptionId,
+      }
       : null,
     {
-      enabled: isOpen && !!customerId,
+      enabled: isOpen,
     }
   )
 
-  const checkoutSession = checkoutData?.checkoutSession
+  // The API returns the checkout session directly
+  const checkoutSession = checkoutData
 
-  // Check if we're in demo mode (invalid Stripe credentials)
-  const isValidStripeKey = (key: string) => {
-    return key && (key.startsWith('pk_live_') || key.startsWith('pk_test_')) && key.length > 20
-  }
-
-  const isValidClientSecret = (secret: string) => {
-    // Valid client secrets look like: pi_xxx_secret_xxx or seti_xxx_secret_xxx
-    return secret && /^(pi|seti)_[a-zA-Z0-9]+_secret_[a-zA-Z0-9]+$/.test(secret)
-  }
+  // Log checkout session data
+  React.useEffect(() => {
+    console.log('[PaymentBottomSheet] Checkout session data:', {
+      hasCheckoutData: !!checkoutData,
+      checkoutSession: checkoutSession,
+      checkoutError: checkoutError?.message,
+      isOpen
+    })
+  }, [checkoutData, checkoutSession, checkoutError, isOpen])
 
   // Initialize Stripe when checkout session is ready
   React.useEffect(() => {
+    console.log('[PaymentBottomSheet] Stripe initialization effect triggered')
     if (checkoutSession) {
-      const validKey = isValidStripeKey(checkoutSession.stripePublishableKey)
+      const validKey = isValidStripeKey(BILLINGOS_STRIPE_PUBLISHABLE_KEY)
       const validSecret = isValidClientSecret(checkoutSession.clientSecret)
 
+      console.log('[PaymentBottomSheet] Stripe validation:', {
+        publishableKey: BILLINGOS_STRIPE_PUBLISHABLE_KEY,
+        validKey,
+        clientSecret: checkoutSession.clientSecret?.substring(0, 20) + '...',
+        validSecret,
+        stripeAccountId: checkoutSession.stripeAccountId
+      })
+
       if (validKey && validSecret) {
-        const stripe = loadStripe(checkoutSession.stripePublishableKey, {
+        // Use BillingOS platform Stripe key with merchant's Connect account ID
+        console.log('[PaymentBottomSheet] Loading Stripe with valid credentials')
+        const stripe = loadStripe(BILLINGOS_STRIPE_PUBLISHABLE_KEY, {
           stripeAccount: checkoutSession.stripeAccountId,
         })
         setStripePromise(stripe)
         setIsDemoMode(false)
       } else {
-        // Demo mode - no valid Stripe credentials
+        // Demo mode - invalid credentials
+        console.log('[PaymentBottomSheet] Invalid Stripe credentials, entering demo mode')
         setIsDemoMode(true)
       }
       setSheetState('ready')
@@ -149,6 +184,7 @@ export function PaymentBottomSheet({
   }
 
   const handleClose = () => {
+    console.log('[PaymentBottomSheet] handleClose called, isProcessing:', isProcessing)
     if (isProcessing) {
       // Show confirmation if payment is processing
       const confirmed = window.confirm(
@@ -196,21 +232,48 @@ export function PaymentBottomSheet({
     }
   }
 
+  // Log render
+  console.log('[PaymentBottomSheet] Rendering drawer with isOpen:', isOpen, 'sheetState:', sheetState)
+
   return (
-    <Drawer open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DrawerContent
-        preventClose={isProcessing}
-        onCloseAttempt={() => {
-          window.alert('Please wait while your payment is being processed.')
-        }}
-      >
+    <ErrorBoundary
+      fallback={(error, reset) => (
+        <div style={{ padding: '20px', maxWidth: '400px', margin: '0 auto' }}>
+          <Alert variant="destructive">
+            <AlertDescription>
+              Failed to load payment form: {error?.message || 'Unknown error'}
+            </AlertDescription>
+          </Alert>
+          <div className="mt-4 flex gap-2">
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button onClick={reset}>Try Again</Button>
+          </div>
+        </div>
+      )}
+      onError={(error, errorInfo) => {
+        console.error('[PaymentBottomSheet] Error caught by boundary:', error)
+        console.error('[PaymentBottomSheet] Error info:', errorInfo)
+      }}
+    >
+      <Drawer open={isOpen} onOpenChange={(open) => {
+        console.log('[PaymentBottomSheet] Drawer.onOpenChange called with open:', open)
+        if (!open) {
+          handleClose()
+        }
+      }}>
+        <DrawerContent
+          preventClose={isProcessing}
+          onCloseAttempt={() => {
+            window.alert('Please wait while your payment is being processed.')
+          }}
+        >
         <DrawerHeader className="text-center sm:text-left">
           <DrawerTitle>
             {sheetState === 'success'
               ? 'Payment Successful!'
               : existingSubscriptionId
-              ? 'Complete Your Upgrade'
-              : 'Complete Payment'}
+                ? 'Complete Your Upgrade'
+                : 'Complete Payment'}
           </DrawerTitle>
           {sheetState !== 'success' && checkoutSession && (
             <DrawerDescription>
@@ -477,5 +540,6 @@ export function PaymentBottomSheet({
         )}
       </DrawerContent>
     </Drawer>
+    </ErrorBoundary>
   )
 }

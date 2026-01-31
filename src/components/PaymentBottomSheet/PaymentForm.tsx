@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '../ui/alert'
 import { Separator } from '../ui/separator'
 import { cn } from '@/utils/cn'
 import type { CheckoutSession } from '../../client/types'
+import { useBillingOS } from '../../providers/BillingOSProvider'
 
 interface PaymentFormProps {
   checkoutSession: CheckoutSession
@@ -27,6 +28,7 @@ export function PaymentForm({
   isProcessing,
   setIsProcessing,
 }: PaymentFormProps) {
+  const { client } = useBillingOS()
   const stripe = useStripe()
   const elements = useElements()
   const [error, setError] = React.useState<string | null>(null)
@@ -69,11 +71,26 @@ export function PaymentForm({
         return
       }
 
-      // Payment successful
-      if (paymentIntent?.status === 'succeeded') {
-        // In a real implementation, we'd call confirmCheckout here
-        // For now, we'll simulate success with the payment intent ID
-        onSuccess(paymentIntent.id)
+      // Payment successful - confirm with backend to create subscription
+      if (paymentIntent?.status === 'succeeded' && paymentIntent.payment_method) {
+        try {
+          const result = await client.confirmCheckout(
+            checkoutSession.clientSecret,
+            paymentIntent.payment_method as string
+          )
+
+          if (result.success) {
+            onSuccess(result.subscriptionId)
+          } else {
+            throw new Error(result.message || 'Failed to create subscription')
+          }
+        } catch (confirmError) {
+          const message = confirmError instanceof Error ? confirmError.message : 'Failed to complete checkout'
+          setError(message)
+          onError?.(message)
+          setIsProcessing(false)
+          return
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Payment failed'

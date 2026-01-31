@@ -18,6 +18,16 @@ export interface BillingOSContextValue {
   customerId?: string
 
   /**
+   * Optional customer email
+   */
+  customerEmail?: string
+
+  /**
+   * Optional customer name
+   */
+  customerName?: string
+
+  /**
    * Optional organization ID
    */
   organizationId?: string
@@ -53,6 +63,16 @@ export interface BillingOSProviderProps {
    * Optional customer ID for the current user
    */
   customerId?: string
+
+  /**
+   * Optional customer email
+   */
+  customerEmail?: string
+
+  /**
+   * Optional customer name
+   */
+  customerName?: string
 
   /**
    * Optional organization ID
@@ -135,11 +155,18 @@ export function BillingOSProvider({
   sessionTokenUrl,
   sessionTokenOptions,
   customerId,
+  customerEmail,
+  customerName,
   organizationId,
   options,
   queryClient,
   children,
 }: BillingOSProviderProps) {
+  // Log SDK version on mount
+  React.useEffect(() => {
+    console.log('🚀 BillingOS SDK v0.1.2 initialized - CSS injected directly')
+  }, [])
+
   // Fetch and manage session token
   const { token, isLoading, error } = useSessionToken({
     token: manualSessionToken,
@@ -164,9 +191,11 @@ export function BillingOSProvider({
     () => client ? {
       client,
       customerId,
+      customerEmail,
+      customerName,
       organizationId,
     } : null,
-    [client, customerId, organizationId]
+    [client, customerId, customerEmail, customerName, organizationId]
   )
 
   // Show loading state while fetching token

@@ -27,6 +27,11 @@ function Drawer({ open = false, onOpenChange, children }: DrawerProps) {
   const isOpen = open ?? internalOpen
   const handleOpenChange = onOpenChange ?? setInternalOpen
 
+  // Debug logging
+  React.useEffect(() => {
+    console.log('[Drawer] State:', { open, internalOpen, isOpen })
+  }, [open, internalOpen, isOpen])
+
   return (
     <DrawerContext.Provider value={{ open: isOpen, onOpenChange: handleOpenChange }}>
       {children}
@@ -172,7 +177,13 @@ const DrawerContent = React.forwardRef<HTMLDivElement, DrawerContentProps>(
       }
     }
 
-    if (!open) return null
+    // Debug logging
+    console.log('[DrawerContent] Rendering, open:', open, 'preventClose:', preventClose)
+
+    if (!open) {
+      console.log('[DrawerContent] Not rendering because open is false')
+      return null
+    }
 
     return (
       <div className="fixed inset-0 z-50">

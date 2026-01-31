@@ -2,50 +2,33 @@ import * as React from 'react'
 import { Skeleton } from '../ui/skeleton'
 import { Alert, AlertDescription } from '../ui/alert'
 import { Button } from '../ui/button'
+import { Badge } from '../ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../ui/table'
 import { cn } from '../../utils/cn'
 import { useProducts } from './hooks/useProducts'
-import { PricingCard } from './PricingCard'
 import { PaymentBottomSheet } from '../PaymentBottomSheet'
+import type { PricingProduct, PricingPrice } from '../../client/types'
 
 export interface PricingTableProps {
-  /**
-   * Optional: Override which plans to show
-   * If not provided, shows all active plans
-   */
   planIds?: string[]
-
-  /**
-   * Optional: Billing interval toggle
-   * Default: true (shows monthly/yearly toggle)
-   */
   showIntervalToggle?: boolean
-
-  /**
-   * Optional: Default interval
-   * Default: 'month'
-   */
   defaultInterval?: 'month' | 'year'
-
-  /**
-   * Callback when user clicks Buy/Upgrade button
-   * Opens PaymentBottomSheet automatically if not provided
-   */
   onSelectPlan?: (priceId: string) => void
-
-  /**
-   * Optional: Custom theme
-   */
   theme?: 'light' | 'dark'
-
-  /**
-   * Optional: Title to display above the pricing table
-   */
   title?: string
-
-  /**
-   * Optional: Description to display below the title
-   */
   description?: string
+}
+
+interface FeatureRow {
+  name: string
+  values: (string | boolean | number | null)[]
 }
 
 export function PricingTable({
@@ -61,12 +44,11 @@ export function PricingTable({
   const [selectedPriceId, setSelectedPriceId] = React.useState<string | null>(null)
   const [isPaymentOpen, setIsPaymentOpen] = React.useState(false)
 
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-  } = useProducts({ planIds })
+  React.useEffect(() => {
+    console.log('📊 PricingTable v0.1.2 rendered - CSS injected')
+  }, [])
+
+  const { data, isLoading, error, refetch } = useProducts({ planIds })
 
   const products = data?.products || []
   const currentSubscription = data?.currentSubscription || null
@@ -76,47 +58,91 @@ export function PricingTable({
     p.prices.some((price) => price.interval === 'year')
   )
 
+  // Extract all unique features across all products
+  const getAllFeatures = React.useMemo((): FeatureRow[] => {
+    const featureMap = new Map<string, FeatureRow>()
+
+    // First, collect all unique features using feature.id as key
+    products.forEach((product) => {
+      product.features.forEach((feature) => {
+        if (!featureMap.has(feature.id)) {
+          featureMap.set(feature.id, {
+            name: feature.title,
+            values: Array(products.length).fill(null),
+          })
+        }
+      })
+    })
+
+    // Populate feature values for each product
+    const featureRows = Array.from(featureMap.entries())
+    featureRows.forEach(([featureId, featureRow]) => {
+      products.forEach((product, productIndex) => {
+        const feature = product.features.find((f) => f.id === featureId)
+        if (feature) {
+          // Determine feature value based on type
+          if (feature.type === 'boolean_flag') {
+            featureRow.values[productIndex] = true
+          } else if (feature.type === 'usage_quota' || feature.type === 'numeric_limit') {
+            const limit = feature.properties?.limit
+            if (limit === -1) {
+              featureRow.values[productIndex] = 'Unlimited'
+            } else if (typeof limit === 'number') {
+              featureRow.values[productIndex] = limit
+            } else {
+              featureRow.values[productIndex] = true
+            }
+          }
+        }
+      })
+    })
+
+    return featureRows.map(([, row]) => row)
+  }, [products])
+
+  // Format price for display
+  const formatPrice = (price: PricingPrice) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: price.currency.toUpperCase(),
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price.amount / 100)
+  }
+
+  // Get price for selected interval
+  const getPriceForInterval = (product: PricingProduct): PricingPrice | null => {
+    return product.prices.find((p) => p.interval === selectedInterval) || product.prices[0] || null
+  }
+
   // Handle plan selection
   const handleSelectPlan = (priceId: string) => {
     if (onSelectPlan) {
       onSelectPlan(priceId)
     } else {
-      // Open PaymentBottomSheet
       setSelectedPriceId(priceId)
       setIsPaymentOpen(true)
     }
   }
 
   // Handle payment success
-  const handlePaymentSuccess = (_subscriptionId: string) => {
+  const handlePaymentSuccess = () => {
     setIsPaymentOpen(false)
     setSelectedPriceId(null)
-    // Refetch products to update current plan
     refetch()
   }
 
   // Loading state
   if (isLoading) {
     return (
-      <div className="w-full">
+      <div className={cn('w-full', theme === 'dark' && 'dark')}>
         {title && (
           <div className="text-center mb-8">
             <Skeleton className="h-10 w-64 mx-auto mb-2" />
             {description && <Skeleton className="h-5 w-96 mx-auto" />}
           </div>
         )}
-        {showIntervalToggle && (
-          <div className="flex justify-center mb-8">
-            <Skeleton className="h-10 w-64" />
-          </div>
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="space-y-4">
-              <Skeleton className="h-[400px] w-full rounded-lg" />
-            </div>
-          ))}
-        </div>
+        <Skeleton className="h-[600px] w-full" />
       </div>
     )
   }
@@ -124,16 +150,14 @@ export function PricingTable({
   // Error state
   if (error) {
     return (
-      <div className="w-full max-w-md mx-auto">
+      <div className={cn('w-full max-w-md mx-auto', theme === 'dark' && 'dark')}>
         <Alert variant="destructive">
           <AlertDescription>
             {error.message || 'Failed to load pricing plans'}
           </AlertDescription>
         </Alert>
         <div className="mt-4 flex justify-center">
-          <Button onClick={() => refetch()}>
-            Try Again
-          </Button>
+          <Button onClick={() => refetch()}>Try Again</Button>
         </div>
       </div>
     )
@@ -142,19 +166,19 @@ export function PricingTable({
   // Empty state
   if (products.length === 0) {
     return (
-      <div className="w-full text-center py-12">
+      <div className={cn('w-full text-center py-12', theme === 'dark' && 'dark')}>
         <p className="text-muted-foreground">No pricing plans available</p>
       </div>
     )
   }
 
   return (
-    <div className="w-full">
+    <div className={cn('w-full', theme === 'dark' && 'dark')}>
       {/* Header */}
       {(title || description) && (
         <div className="text-center mb-8">
           {title && (
-            <h2 className="text-3xl font-bold tracking-tight">{title}</h2>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground">{title}</h2>
           )}
           {description && (
             <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
@@ -189,43 +213,172 @@ export function PricingTable({
               )}
             >
               Yearly
-              <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 px-2 py-0.5 rounded-full">
+              <Badge variant="secondary" className="text-xs">
                 Save
-              </span>
+              </Badge>
             </button>
           </div>
         </div>
       )}
 
-      {/* Pricing Cards Grid */}
-      <div
-        className={cn(
-          'grid gap-6',
-          products.length === 1 && 'grid-cols-1 max-w-md mx-auto',
-          products.length === 2 && 'grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto',
-          products.length >= 3 && 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-        )}
-      >
-        {products.map((product) => (
-          <PricingCard
-            key={product.id}
-            product={product}
-            selectedInterval={selectedInterval}
-            currentSubscription={currentSubscription}
-            onSelectPlan={handleSelectPlan}
-            theme={theme}
-          />
-        ))}
+      {/* Pricing Table */}
+      <div className="rounded-lg border bg-card overflow-hidden">
+        <Table>
+          {/* Header Row: Plan Names & Prices */}
+          <TableHeader>
+            <TableRow className="hover:bg-transparent border-b">
+              <TableHead className="w-[200px]" />
+              {products.map((product) => {
+                const price = getPriceForInterval(product)
+                const isHighlighted = product.highlighted
+                const isCurrentPlan = product.isCurrentPlan
+
+                return (
+                  <TableHead
+                    key={product.id}
+                    className={cn(
+                      'text-center relative',
+                      isHighlighted && 'bg-foreground text-background'
+                    )}
+                  >
+                    <div className="py-8">
+                      {/* Badges */}
+                      {(isHighlighted || isCurrentPlan) && (
+                        <div className="flex justify-center gap-2 mb-3">
+                          {isCurrentPlan && (
+                            <Badge className="bg-primary text-primary-foreground text-xs">
+                              Current Plan
+                            </Badge>
+                          )}
+                          {isHighlighted && !isCurrentPlan && (
+                            <Badge
+                              variant="secondary"
+                              className={cn(
+                                "text-xs",
+                                isHighlighted && "bg-background text-foreground"
+                              )}
+                            >
+                              Popular
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Plan Name */}
+                      <div className={cn(
+                        "font-bold text-xl mb-3",
+                        isHighlighted ? "text-background" : "text-foreground"
+                      )}>
+                        {product.name}
+                      </div>
+
+                      {/* Price */}
+                      {price && (
+                        <>
+                          <div className={cn(
+                            "text-5xl font-bold mb-2",
+                            isHighlighted ? "text-background" : "text-foreground"
+                          )}>
+                            {formatPrice(price)}
+                          </div>
+                          <div className={cn(
+                            "text-sm mt-1",
+                            isHighlighted ? "text-background/70" : "text-muted-foreground"
+                          )}>
+                            Per {selectedInterval === 'year' ? 'year' : 'month'}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </TableHead>
+                )
+              })}
+            </TableRow>
+          </TableHeader>
+
+          {/* Feature Rows */}
+          <TableBody>
+            {getAllFeatures.map((featureRow, index) => (
+              <TableRow key={index}>
+                <TableCell className="font-medium text-foreground py-4">
+                  {featureRow.name}
+                </TableCell>
+                {featureRow.values.map((value, productIndex) => {
+                  const isHighlighted = products[productIndex]?.highlighted
+
+                  return (
+                    <TableCell
+                      key={productIndex}
+                      className={cn(
+                        'text-center py-4',
+                        isHighlighted && 'bg-foreground/5'
+                      )}
+                    >
+                      {value === null || value === false ? (
+                        <span className="text-muted-foreground">-</span>
+                      ) : value === true ? (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="inline-block text-foreground"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <polyline points="9 12 11 14 15 10" />
+                        </svg>
+                      ) : (
+                        <span className="text-foreground font-medium">{value}</span>
+                      )}
+                    </TableCell>
+                  )
+                })}
+              </TableRow>
+            ))}
+
+            {/* CTA Buttons Row */}
+            <TableRow className="hover:bg-transparent border-t">
+              <TableCell className="font-medium text-foreground py-6">
+                Server speed
+              </TableCell>
+              {products.map((product) => {
+                const price = getPriceForInterval(product)
+                const isHighlighted = product.highlighted
+                const isCurrentPlan = product.isCurrentPlan
+
+                return (
+                  <TableCell
+                    key={product.id}
+                    className={cn(
+                      'text-center py-6',
+                      isHighlighted && 'bg-foreground/5'
+                    )}
+                  >
+                    <Button
+                      onClick={() => price && handleSelectPlan(price.id)}
+                      disabled={isCurrentPlan || !price}
+                      variant={isHighlighted && !isCurrentPlan ? 'default' : 'outline'}
+                      className={cn(
+                        "w-full max-w-[200px]",
+                        isHighlighted && !isCurrentPlan && "bg-foreground text-background hover:bg-foreground/90"
+                      )}
+                    >
+                      {isCurrentPlan ? 'Current Plan' : 'Get Started'}
+                    </Button>
+                  </TableCell>
+                )
+              })}
+            </TableRow>
+          </TableBody>
+        </Table>
       </div>
 
-      {/* Footer */}
-      <div className="text-center mt-8">
-        <p className="text-sm text-muted-foreground">
-          All plans include a 30-day money-back guarantee
-        </p>
-      </div>
-
-      {/* Payment Bottom Sheet (only if no custom onSelectPlan handler) */}
+      {/* Payment Bottom Sheet */}
       {!onSelectPlan && selectedPriceId && (
         <PaymentBottomSheet
           priceId={selectedPriceId}

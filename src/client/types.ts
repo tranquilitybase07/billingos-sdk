@@ -497,8 +497,7 @@ export interface CheckoutSession {
   proration?: CheckoutProration
   product: CheckoutProduct
   customer: CheckoutCustomer
-  stripePublishableKey: string
-  stripeAccountId: string
+  stripeAccountId?: string // Connected account ID (optional for platform-owned payments)
 }
 
 /**
@@ -506,16 +505,16 @@ export interface CheckoutSession {
  */
 export interface CreateCheckoutInput {
   priceId: string
-  customerId: string
+  customerEmail?: string
+  customerName?: string
   existingSubscriptionId?: string
 }
 
 /**
  * Response from creating a checkout session
+ * The API returns the checkout session directly
  */
-export interface CreateCheckoutResponse {
-  checkoutSession: CheckoutSession
-}
+export type CreateCheckoutResponse = CheckoutSession
 
 /**
  * Input for confirming a checkout

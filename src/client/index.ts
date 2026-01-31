@@ -519,7 +519,7 @@ export class BillingOSClient {
    * Create a checkout session for purchasing a subscription
    */
   async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResponse> {
-    return this.post<CreateCheckoutResponse>('/sdk/checkout/create', input)
+    return this.post<CreateCheckoutResponse>('/v1/checkout/create', input)
   }
 
   /**
@@ -530,7 +530,7 @@ export class BillingOSClient {
     paymentMethodId: string
   ): Promise<ConfirmCheckoutResponse> {
     return this.post<ConfirmCheckoutResponse>(
-      `/sdk/checkout/${clientSecret}/confirm`,
+      `/v1/checkout/${clientSecret}/confirm`,
       { paymentMethodId }
     )
   }
