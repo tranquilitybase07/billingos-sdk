@@ -12,3 +12,8 @@ export * from './PricingTable'
 
 // UpgradeNudge Component
 export * from './UpgradeNudge'
+
+// Feature Gating Components
+export * from './FeatureGate'
+export * from './UsageDisplay'
+export * from './UpgradePrompt'

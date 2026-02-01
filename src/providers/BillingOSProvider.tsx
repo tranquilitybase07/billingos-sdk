@@ -253,3 +253,29 @@ export function useBillingOS(): BillingOSContextValue {
 
   return context
 }
+
+/**
+ * Hook to access the React Query client used by BillingOS SDK
+ *
+ * Useful for manual query invalidation or cache management.
+ *
+ * Must be used within a BillingOSProvider.
+ *
+ * @example
+ * ```tsx
+ * import { useBillingOSQueryClient } from '@billingos/sdk'
+ * import { useQueryClient } from '@tanstack/react-query'
+ *
+ * function MyComponent() {
+ *   const queryClient = useBillingOSQueryClient()
+ *
+ *   const handleRefresh = () => {
+ *     // Invalidate products query to refresh pricing table
+ *     queryClient.invalidateQueries({ queryKey: ['billingos', 'products'] })
+ *   }
+ *
+ *   return <button onClick={handleRefresh}>Refresh</button>
+ * }
+ * ```
+ */
+export { useQueryClient as useBillingOSQueryClient } from '@tanstack/react-query'

@@ -190,14 +190,14 @@ export class BillingOSClient {
   /**
    * GET request helper
    */
-  private get<T>(path: string): Promise<T> {
+  get<T>(path: string): Promise<T> {
     return this.request<T>(path, { method: 'GET' })
   }
 
   /**
    * POST request helper
    */
-  private post<T>(path: string, body?: unknown): Promise<T> {
+  post<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>(path, {
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
@@ -207,7 +207,7 @@ export class BillingOSClient {
   /**
    * PATCH request helper
    */
-  private patch<T>(path: string, body?: unknown): Promise<T> {
+  patch<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>(path, {
       method: 'PATCH',
       body: body ? JSON.stringify(body) : undefined,
@@ -217,7 +217,7 @@ export class BillingOSClient {
   /**
    * DELETE request helper
    */
-  private delete<T>(path: string): Promise<T> {
+  delete<T>(path: string): Promise<T> {
     return this.request<T>(path, { method: 'DELETE' })
   }
 

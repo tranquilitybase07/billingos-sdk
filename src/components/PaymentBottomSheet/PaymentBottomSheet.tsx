@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements } from '@stripe/react-stripe-js'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Stripe, Appearance } from '@stripe/stripe-js'
 import {
   Drawer,
@@ -73,6 +74,7 @@ export function PaymentBottomSheet({
   })
 
   const { customerEmail, customerName } = useBillingOS()
+  const queryClient = useQueryClient()
   const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null)
   const [sheetState, setSheetState] = React.useState<SheetState>('loading')
   const [error, setError] = React.useState<string | null>(null)
@@ -174,6 +176,11 @@ export function PaymentBottomSheet({
 
   const handlePaymentSuccess = (subscriptionId: string) => {
     setSheetState('success')
+
+    // Invalidate products query to refresh pricing table with new subscription status
+    queryClient.invalidateQueries({ queryKey: ['billingos', 'products'] })
+    console.log('💫 Invalidated products query - PricingTable will auto-refresh')
+
     setTimeout(() => {
       onSuccess(subscriptionId)
     }, 1500)
