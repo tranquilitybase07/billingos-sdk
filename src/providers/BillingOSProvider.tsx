@@ -164,7 +164,8 @@ export function BillingOSProvider({
 }: BillingOSProviderProps) {
   // Log SDK version on mount
   React.useEffect(() => {
-    console.log('🚀 BillingOS SDK v0.1.2 initialized - CSS injected directly')
+    console.log('%c🚀 BillingOS SDK v1.1.0 Initialized', 'color: #10b981; font-weight: bold; font-size: 16px;')
+    console.log('✨ Features: Real-time subscription updates, Customer data prefill, Iframe checkout')
   }, [])
 
   // Fetch and manage session token

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Skeleton } from '../ui/skeleton'
 import { Alert, AlertDescription } from '../ui/alert'
 import { Button } from '../ui/button'
@@ -14,6 +15,8 @@ import {
 import { cn } from '../../utils/cn'
 import { useProducts } from './hooks/useProducts'
 import { PaymentBottomSheet } from '../PaymentBottomSheet'
+import { CheckoutModal } from '../CheckoutModal'
+import { useBillingOS } from '../../providers/BillingOSProvider'
 import type { PricingProduct, PricingPrice } from '../../client/types'
 
 export interface PricingTableProps {
@@ -24,6 +27,8 @@ export interface PricingTableProps {
   theme?: 'light' | 'dark'
   title?: string
   description?: string
+  /** Use the new iframe-based checkout modal instead of bottom sheet */
+  useCheckoutModal?: boolean
 }
 
 interface FeatureRow {
@@ -39,14 +44,43 @@ export function PricingTable({
   theme,
   title = 'Choose Your Plan',
   description,
+  useCheckoutModal = false,
 }: PricingTableProps) {
   const [selectedInterval, setSelectedInterval] = React.useState<'month' | 'year'>(defaultInterval)
   const [selectedPriceId, setSelectedPriceId] = React.useState<string | null>(null)
   const [isPaymentOpen, setIsPaymentOpen] = React.useState(false)
 
+  // Get customer data from context to prefill checkout form
+  const { customerEmail, customerName } = useBillingOS()
+
+  // Get query client for cache invalidation
+  const queryClient = useQueryClient()
+
+  // State for success notification
+  const [showSuccessMessage, setShowSuccessMessage] = React.useState(false)
+
+  // Debug logging
   React.useEffect(() => {
-    console.log('📊 PricingTable v0.1.2 rendered - CSS injected')
-  }, [])
+    console.log('[PricingTable] Customer data from context:', {
+      customerEmail,
+      customerName,
+      hasEmail: !!customerEmail,
+      hasName: !!customerName,
+    })
+  }, [customerEmail, customerName])
+
+  React.useEffect(() => {
+    console.log('📊 BillingOS SDK v1.1.0 - PricingTable rendered - CSS injected')
+    console.log('%c🚀 BillingOS SDK Version: 1.1.0', 'color: #10b981; font-weight: bold; font-size: 14px;')
+    if (useCheckoutModal) {
+      console.log(
+        '%c🎉 Using NEW Iframe-based CheckoutModal with Real-time Updates!',
+        'background: linear-gradient(to right, #10b981, #3b82f6); color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;'
+      )
+    } else {
+      console.log('📦 Using PaymentBottomSheet (legacy)')
+    }
+  }, [useCheckoutModal])
 
   const { data, isLoading, error, refetch } = useProducts({ planIds })
 
@@ -125,12 +159,60 @@ export function PricingTable({
     }
   }
 
-  // Handle payment success
-  const handlePaymentSuccess = () => {
+  // Handle payment success with real-time update
+  const handlePaymentSuccess = React.useCallback(async (subscription?: any) => {
+    console.log('%c🎉 [PricingTable] handlePaymentSuccess CALLED!', 'color: #10b981; font-size: 14px; font-weight: bold;', subscription)
+    console.log('[PricingTable] Subscription data:', subscription)
+
+    // Close the payment modal
     setIsPaymentOpen(false)
     setSelectedPriceId(null)
-    refetch()
-  }
+
+    // Show success message
+    console.log('[PricingTable] Showing success notification...')
+    setShowSuccessMessage(true)
+    setTimeout(() => setShowSuccessMessage(false), 5000) // Hide after 5 seconds
+
+    // Force invalidate the products query to bypass stale time
+    // This ensures immediate refetch of subscription status
+    console.log('%c🔄 Invalidating products cache...', 'color: #8b5cf6; font-weight: 600;')
+    await queryClient.invalidateQueries({
+      queryKey: ['products'],
+      refetchType: 'all' // Force refetch even if not stale
+    })
+
+    // If subscription data is provided, we can also optimistically update the cache
+    if (subscription) {
+      console.log('[PricingTable] Optimistically updating cache with subscription:', subscription)
+
+      queryClient.setQueryData(['products', planIds], (oldData: any) => {
+        if (!oldData) return oldData
+
+        console.log('[PricingTable] Updating cache - old data:', oldData)
+
+        const updatedData = {
+          ...oldData,
+          currentSubscription: subscription,
+          products: oldData.products?.map((product: any) => ({
+            ...product,
+            // Update isCurrentPlan based on the new subscription
+            isCurrentPlan: product.prices?.some((price: any) =>
+              price.id === subscription.priceId
+            ) || false
+          }))
+        }
+
+        console.log('[PricingTable] Updated cache data:', updatedData)
+        return updatedData
+      })
+    }
+
+    // Also trigger a background refetch to ensure data consistency
+    console.log('[PricingTable] Triggering background refetch...')
+    await refetch()
+
+    console.log('%c✅ Products cache invalidated and refetched', 'color: #10b981; font-weight: 600;')
+  }, [queryClient, refetch, planIds])
 
   // Loading state
   if (isLoading) {
@@ -174,6 +256,30 @@ export function PricingTable({
 
   return (
     <div className={cn('w-full', theme === 'dark' && 'dark')}>
+      {/* Success Notification */}
+      {showSuccessMessage && (
+        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg animate-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center space-x-2">
+            <svg
+              className="w-5 h-5 text-green-600 dark:text-green-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            <p className="text-green-800 dark:text-green-200 font-medium">
+              Payment successful! Your subscription has been updated.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       {(title || description) && (
         <div className="text-center mb-8">
@@ -184,6 +290,14 @@ export function PricingTable({
             <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
               {description}
             </p>
+          )}
+          {useCheckoutModal && (
+            <div className="inline-flex items-center gap-2 mt-4 px-3 py-1 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 rounded-full text-sm font-medium">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>Using Secure Iframe Checkout</span>
+            </div>
           )}
         </div>
       )}
@@ -378,19 +492,43 @@ export function PricingTable({
         </Table>
       </div>
 
-      {/* Payment Bottom Sheet */}
+      {/* Payment Component - Either Modal or Bottom Sheet */}
       {!onSelectPlan && selectedPriceId && (
-        <PaymentBottomSheet
-          priceId={selectedPriceId}
-          isOpen={isPaymentOpen}
-          onClose={() => {
-            setIsPaymentOpen(false)
-            setSelectedPriceId(null)
-          }}
-          onSuccess={handlePaymentSuccess}
-          existingSubscriptionId={currentSubscription?.id}
-          theme={theme}
-        />
+        <>
+          {useCheckoutModal ? (
+            <CheckoutModal
+              open={isPaymentOpen}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setIsPaymentOpen(false)
+                  setSelectedPriceId(null)
+                }
+              }}
+              priceId={selectedPriceId}
+              customer={{
+                email: customerEmail,
+                name: customerName,
+              }}
+              onSuccess={(subscription) => {
+                handlePaymentSuccess(subscription)
+              }}
+              existingSubscriptionId={currentSubscription?.id}
+              theme={theme}
+            />
+          ) : (
+            <PaymentBottomSheet
+              priceId={selectedPriceId}
+              isOpen={isPaymentOpen}
+              onClose={() => {
+                setIsPaymentOpen(false)
+                setSelectedPriceId(null)
+              }}
+              onSuccess={handlePaymentSuccess}
+              existingSubscriptionId={currentSubscription?.id}
+              theme={theme}
+            />
+          )}
+        </>
       )}
     </div>
   )

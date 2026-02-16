@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import dts from 'vite-plugin-dts'
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js'
+import peerDepsExternal from 'rollup-plugin-peer-deps-external'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -23,17 +24,22 @@ export default defineConfig({
       fileName: (format) => `index.${format === 'es' ? 'mjs' : 'js'}`,
     },
     rollupOptions: {
+      plugins: [
+        peerDepsExternal() as any,  // This automatically externalizes all peer dependencies
+      ],
       external: [
-        'react',
-        'react-dom',
-        'react/jsx-runtime',
-        '@stripe/stripe-js',
-        '@stripe/react-stripe-js',
-        '@tanstack/react-query',
+        // Still explicitly externalize runtime dependencies that aren't peer deps
+        'react-shadow-scope',
+        'react-hook-form',
+        'class-variance-authority',
+        'clsx',
+        'tailwind-merge',
+        'date-fns',
+        'zod',
       ],
       output: {
         globals: {
-          react: 'React',
+          'react': 'React',
           'react-dom': 'ReactDOM',
           '@stripe/stripe-js': 'StripeJS',
           '@stripe/react-stripe-js': 'ReactStripeJS',

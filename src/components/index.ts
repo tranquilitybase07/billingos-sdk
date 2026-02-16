@@ -7,6 +7,9 @@ export * from './CustomerPortal'
 // PaymentBottomSheet Component
 export * from './PaymentBottomSheet'
 
+// CheckoutModal Component (iframe-based)
+export * from './CheckoutModal'
+
 // PricingTable Component
 export * from './PricingTable'
 

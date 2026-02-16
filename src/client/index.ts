@@ -39,6 +39,10 @@ import type {
   CreateCheckoutInput,
   CreateCheckoutResponse,
   ConfirmCheckoutResponse,
+  // Checkout Modal types
+  CreateCheckoutSessionInput,
+  CreateCheckoutSessionResponse,
+  CheckoutSessionDetails,
   // Pricing table types
   GetProductsResponse,
   // Upgrade nudge types
@@ -533,6 +537,70 @@ export class BillingOSClient {
       `/v1/checkout/${clientSecret}/confirm`,
       { paymentMethodId }
     )
+  }
+
+  // =============================================================================
+  // CHECKOUT MODAL API (Iframe-based checkout)
+  // =============================================================================
+
+  /**
+   * Checkout API methods for iframe-based checkout modal
+   */
+  public checkout = {
+    /**
+     * Create a checkout session for iframe-based checkout
+     */
+    createSession: async (input: CreateCheckoutSessionInput): Promise<CreateCheckoutSessionResponse> => {
+      // Log what we're sending
+      console.log('[SDK Client] Creating checkout session with:', {
+        priceId: input.priceId,
+        customer: input.customer,
+        hasEmail: !!input.customer?.email,
+        hasName: !!input.customer?.name,
+      })
+
+      const response = await this.post<CreateCheckoutSessionResponse>('/v1/checkout/create', input)
+
+      console.log('[SDK Client] Checkout session created:', {
+        sessionId: response.id,
+        status: response.status,
+      })
+
+      return response
+    },
+
+    /**
+     * Get checkout session details
+     */
+    getSession: async (sessionId: string): Promise<CheckoutSessionDetails> => {
+      return this.get<CheckoutSessionDetails>(`/v1/checkout/${sessionId}/status`)
+    },
+
+    /**
+     * Cancel a checkout session (not implemented in backend yet)
+     */
+    cancelSession: async (_sessionId: string): Promise<void> => {
+      // TODO: Backend doesn't have this endpoint yet
+      throw new Error('Cancel session not implemented yet')
+    },
+
+    /**
+     * Confirm payment for a checkout session
+     */
+    confirmPayment: async (clientSecret: string, paymentMethodId: string): Promise<ConfirmCheckoutResponse> => {
+      return this.post<ConfirmCheckoutResponse>(
+        `/v1/checkout/${clientSecret}/confirm`,
+        { paymentMethodId }
+      )
+    },
+
+    /**
+     * Apply coupon to a checkout session (not implemented in backend yet)
+     */
+    applyCoupon: async (_sessionId: string, _couponCode: string): Promise<CheckoutSessionDetails> => {
+      // TODO: Backend doesn't have this endpoint yet
+      throw new Error('Apply coupon not implemented yet')
+    }
   }
 
   // =============================================================================

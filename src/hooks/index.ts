@@ -4,6 +4,9 @@ export * from './useSessionToken'
 // Subscription hooks
 export * from './useSubscription'
 
+// Checkout hooks
+export * from './useCheckout'
+
 // Entitlement hooks (excluding duplicates)
 export {
   entitlementKeys,

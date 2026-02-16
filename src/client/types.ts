@@ -534,6 +534,59 @@ export interface ConfirmCheckoutResponse {
 }
 
 // =============================================================================
+// CHECKOUT MODAL TYPES (Iframe-based)
+// =============================================================================
+
+/**
+ * Input for creating an iframe checkout session
+ */
+export interface CreateCheckoutSessionInput {
+  priceId: string
+  customer?: {
+    email?: string
+    name?: string
+    taxId?: string
+  }
+  couponCode?: string
+  metadata?: Record<string, string>
+  existingSubscriptionId?: string
+  mode?: 'embedded' | 'redirect'
+  successUrl?: string
+  cancelUrl?: string
+}
+
+/**
+ * Response from creating a checkout session
+ */
+export interface CreateCheckoutSessionResponse {
+  id: string
+  url?: string
+  expiresAt: string
+  status: 'pending' | 'completed' | 'expired'
+}
+
+/**
+ * Detailed checkout session information
+ */
+export interface CheckoutSessionDetails {
+  id: string
+  clientSecret: string
+  amount: number // cents
+  currency: string
+  priceId: string
+  product: CheckoutProduct
+  customer: CheckoutCustomer
+  couponCode?: string
+  discountAmount?: number
+  taxAmount?: number
+  totalAmount: number
+  proration?: CheckoutProration
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'expired'
+  expiresAt: string
+  stripeAccountId?: string
+}
+
+// =============================================================================
 // PRICING TABLE TYPES
 // =============================================================================
 
