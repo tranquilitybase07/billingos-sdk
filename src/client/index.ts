@@ -604,6 +604,54 @@ export class BillingOSClient {
   }
 
   // =============================================================================
+  // PORTAL API (Iframe-based customer portal)
+  // =============================================================================
+
+  /**
+   * Portal API methods for iframe-based customer portal
+   */
+  public portal = {
+    /**
+     * Create a portal session for customer self-service
+     */
+    createSession: async (input?: { customerId?: string; metadata?: Record<string, any> }): Promise<{ id: string; expiresAt: string }> => {
+      console.log('[SDK Client] Creating portal session')
+
+      const response = await this.post<{ id: string; customerId: string; organizationId: string; expiresAt: string }>(
+        '/v1/portal/create',
+        input || {}
+      )
+
+      console.log('[SDK Client] Portal session created:', {
+        sessionId: response.id,
+        customerId: response.customerId,
+        expiresAt: response.expiresAt,
+      })
+
+      return {
+        id: response.id,
+        expiresAt: response.expiresAt,
+      }
+    },
+
+    /**
+     * Get portal session status
+     */
+    getSessionStatus: async (sessionId: string): Promise<{ isValid: boolean; expiresAt?: string }> => {
+      return this.get<{ sessionId: string; isValid: boolean; expiresAt?: string; customerId?: string }>(
+        `/v1/portal/${sessionId}/status`
+      )
+    },
+
+    /**
+     * Get portal data for a session
+     */
+    getPortalData: async (sessionId: string): Promise<any> => {
+      return this.get(`/v1/portal/${sessionId}/data`)
+    },
+  }
+
+  // =============================================================================
   // PRICING TABLE API
   // =============================================================================
 
