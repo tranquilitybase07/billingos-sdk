@@ -2,7 +2,7 @@
 
 // Log SDK version on load
 console.log(
-  '%c🎯 BillingOS SDK v1.1.0 loaded with Iframe Checkout',
+  '%c🎯 BillingOS SDK v1.2.0 loaded with Iframe Checkout',
   'background: #3b82f6; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 14px;'
 )
 

@@ -113,7 +113,7 @@ export function CheckoutModal({
   // Log version on mount
   useEffect(() => {
     console.log(
-      '%c🚀 BillingOS SDK v1.1.0 loaded with Iframe Checkout',
+      '%c🚀 BillingOS SDK v1.2.0 loaded with Iframe Checkout',
       'background: linear-gradient(to right, #667eea, #764ba2); color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;'
     )
     console.log('%c📦 Using iframe for PCI compliance and security', 'color: #10b981; font-weight: 600;')

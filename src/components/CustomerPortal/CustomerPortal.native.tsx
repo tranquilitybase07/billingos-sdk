@@ -19,7 +19,6 @@ import { AddPaymentMethodModal } from './modals/AddPaymentMethodModal'
 // Hooks
 import {
   usePortalData,
-  useUpdatePortalSubscription,
   useCancelPortalSubscription,
   useReactivatePortalSubscription,
   useSetupIntent,
@@ -88,22 +87,11 @@ function PortalContent({
   const [retryingInvoiceId, setRetryingInvoiceId] = React.useState<string | undefined>()
   const [settingDefaultId, setSettingDefaultId] = React.useState<string | undefined>()
   const [removingPaymentId, setRemovingPaymentId] = React.useState<string | undefined>()
-  const [selectedPlanId, setSelectedPlanId] = React.useState<string | undefined>()
 
   // Fetch portal data
   const { data: portalData, isLoading, error } = usePortalData()
 
   // Mutations
-  const updateSubscription = useUpdatePortalSubscription(
-    portalData?.subscription?.id || '',
-    {
-      onSuccess: () => {
-        setShowChangePlan(false)
-        setSelectedPlanId(undefined)
-      },
-    }
-  )
-
   const cancelSubscription = useCancelPortalSubscription(
     portalData?.subscription?.id || '',
     {
@@ -148,18 +136,6 @@ function PortalContent({
   // Handlers
   const handleChangePlan = () => {
     setShowChangePlan(true)
-  }
-
-  const handleSelectPlan = (planId: string) => {
-    setSelectedPlanId(planId)
-    // Find the selected plan to get its price ID
-    const plan = portalData?.availablePlans.find((p) => p.id === planId)
-    if (plan) {
-      updateSubscription.mutate({
-        newPriceId: planId, // Assuming planId is the price ID
-        prorationBehavior: 'always_invoice',
-      })
-    }
   }
 
   const handleCancelSubscription = () => {
@@ -294,15 +270,17 @@ function PortalContent({
       </Tabs>
 
       {/* Modals */}
-      <ChangePlanModal
-        open={showChangePlan}
-        onOpenChange={setShowChangePlan}
-        currentSubscription={portalData?.subscription || null}
-        availablePlans={portalData?.availablePlans || []}
-        onSelectPlan={handleSelectPlan}
-        isChanging={updateSubscription.isPending}
-        selectedPlanId={selectedPlanId}
-      />
+      {portalData?.subscription?.id && (
+        <ChangePlanModal
+          subscriptionId={portalData.subscription.id}
+          open={showChangePlan}
+          onOpenChange={setShowChangePlan}
+          onSuccess={() => {
+            setShowChangePlan(false)
+            // Refetch portal data to update the UI
+          }}
+        />
+      )}
 
       {portalData?.subscription && (
         <CancelSubscriptionModal
@@ -366,21 +344,9 @@ export function CustomerPortal({
     const [retryingInvoiceId, setRetryingInvoiceId] = React.useState<string | undefined>()
     const [settingDefaultId, setSettingDefaultId] = React.useState<string | undefined>()
     const [removingPaymentId, setRemovingPaymentId] = React.useState<string | undefined>()
-    const [selectedPlanId, setSelectedPlanId] = React.useState<string | undefined>()
 
     // Fetch portal data
     const { data: portalData, isLoading, error } = usePortalData()
-
-    // Mutations
-    const updateSubscription = useUpdatePortalSubscription(
-      portalData?.subscription?.id || '',
-      {
-        onSuccess: () => {
-          setShowChangePlan(false)
-          setSelectedPlanId(undefined)
-        },
-      }
-    )
 
     const cancelSubscription = useCancelPortalSubscription(
       portalData?.subscription?.id || '',
@@ -426,17 +392,6 @@ export function CustomerPortal({
     // Handlers
     const handleChangePlan = () => {
       setShowChangePlan(true)
-    }
-
-    const handleSelectPlan = (planId: string) => {
-      setSelectedPlanId(planId)
-      const plan = portalData?.availablePlans.find((p) => p.id === planId)
-      if (plan) {
-        updateSubscription.mutate({
-          newPriceId: planId,
-          prorationBehavior: 'always_invoice',
-        })
-      }
     }
 
     const handleCancelSubscription = () => {
@@ -573,15 +528,16 @@ export function CustomerPortal({
           </div>
 
           {/* Modals */}
-          <ChangePlanModal
-            open={showChangePlan}
-            onOpenChange={setShowChangePlan}
-            currentSubscription={portalData?.subscription || null}
-            availablePlans={portalData?.availablePlans || []}
-            onSelectPlan={handleSelectPlan}
-            isChanging={updateSubscription.isPending}
-            selectedPlanId={selectedPlanId}
-          />
+          {portalData?.subscription && (
+            <ChangePlanModal
+              open={showChangePlan}
+              onOpenChange={setShowChangePlan}
+              subscriptionId={portalData.subscription.id}
+              onSuccess={() => {
+                setShowChangePlan(false)
+              }}
+            />
+          )}
 
           {portalData?.subscription && (
             <CancelSubscriptionModal

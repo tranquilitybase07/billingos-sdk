@@ -9,6 +9,8 @@ export interface IframeMessage {
     | 'PAYMENT_METHOD_ADDED'
     | 'PAYMENT_METHOD_UPDATED'
     | 'HEIGHT_CHANGED'
+    | 'OPEN_PRICING_TABLE'
+    | 'CLOSE_PRICING_TABLE'
     | 'ERROR'
   payload?: any
 }

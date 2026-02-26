@@ -6,6 +6,11 @@ import type {
   UpdateSubscriptionInput,
   SubscriptionPreview,
   PaginatedResponse,
+  AvailablePlansResponse,
+  PreviewChangeInput,
+  PreviewChangeResponse,
+  ChangePlanInput,
+  ChangePlanResponse,
 } from '../client'
 
 /**
@@ -338,5 +343,148 @@ export function useSubscriptionPreview(
     queryFn: () => client.previewSubscription(subscriptionId, input),
     enabled: !!subscriptionId && !!input,
     ...options,
+  })
+}
+
+/**
+ * Fetch available plans for upgrade/downgrade
+ *
+ * @param subscriptionId - Subscription ID
+ * @param options - React Query options
+ *
+ * @example
+ * ```tsx
+ * function AvailablePlans({ subscriptionId }: { subscriptionId: string }) {
+ *   const { data, isLoading } = useAvailablePlans(subscriptionId)
+ *
+ *   if (isLoading) return <div>Loading plans...</div>
+ *
+ *   return (
+ *     <div>
+ *       <h3>Upgrades:</h3>
+ *       {data?.available_upgrades.map(plan => (
+ *         <div key={plan.price_id}>{plan.product_name}</div>
+ *       ))}
+ *     </div>
+ *   )
+ * }
+ * ```
+ */
+export function useAvailablePlans(
+  subscriptionId: string,
+  options?: Omit<UseQueryOptions<AvailablePlansResponse>, 'queryKey' | 'queryFn'>
+) {
+  const { client } = useBillingOS()
+
+  return useQuery({
+    queryKey: [...subscriptionKeys.detail(subscriptionId), 'available-plans'] as const,
+    queryFn: () => client.getAvailablePlans(subscriptionId),
+    enabled: !!subscriptionId,
+    ...options,
+  })
+}
+
+/**
+ * Preview a plan change with proration details
+ *
+ * @param options - React Query mutation options
+ *
+ * @example
+ * ```tsx
+ * function PlanChangePreview({ subscriptionId }: { subscriptionId: string }) {
+ *   const previewChange = usePreviewPlanChange()
+ *
+ *   const handlePreview = async (newPriceId: string) => {
+ *     const preview = await previewChange.mutateAsync({
+ *       subscriptionId,
+ *       input: { new_price_id: newPriceId }
+ *     })
+ *     console.log('Proration:', preview.proration.immediate_payment)
+ *   }
+ *
+ *   return <button onClick={() => handlePreview('price_123')}>Preview</button>
+ * }
+ * ```
+ */
+export function usePreviewPlanChange(
+  options?: Omit<
+    UseMutationOptions<
+      PreviewChangeResponse,
+      Error,
+      { subscriptionId: string; input: PreviewChangeInput }
+    >,
+    'mutationFn'
+  >
+) {
+  const { client } = useBillingOS()
+
+  return useMutation({
+    ...options,
+    mutationFn: ({ subscriptionId, input }) =>
+      client.previewPlanChange(subscriptionId, input),
+  })
+}
+
+/**
+ * Execute a plan change (upgrade/downgrade)
+ *
+ * @param options - React Query mutation options
+ *
+ * @example
+ * ```tsx
+ * function ChangePlanButton({ subscriptionId }: { subscriptionId: string }) {
+ *   const changePlan = useChangePlan({
+ *     onSuccess: (response) => {
+ *       console.log('Plan changed:', response.subscription.id)
+ *     }
+ *   })
+ *
+ *   const handleChange = () => {
+ *     changePlan.mutate({
+ *       subscriptionId,
+ *       input: {
+ *         new_price_id: 'price_456',
+ *         confirm_amount: 1999
+ *       }
+ *     })
+ *   }
+ *
+ *   return (
+ *     <button onClick={handleChange} disabled={changePlan.isPending}>
+ *       {changePlan.isPending ? 'Changing...' : 'Change Plan'}
+ *     </button>
+ *   )
+ * }
+ * ```
+ */
+export function useChangePlan(
+  options?: Omit<
+    UseMutationOptions<
+      ChangePlanResponse,
+      Error,
+      { subscriptionId: string; input: ChangePlanInput }
+    >,
+    'mutationFn'
+  >
+) {
+  const { client } = useBillingOS()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    ...options,
+    mutationFn: ({ subscriptionId, input }) =>
+      client.changePlan(subscriptionId, input),
+    onSuccess: (_data, variables, _context) => {
+      // Invalidate subscription cache
+      queryClient.invalidateQueries({
+        queryKey: subscriptionKeys.detail(variables.subscriptionId),
+      })
+      // Invalidate subscription lists
+      queryClient.invalidateQueries({ queryKey: subscriptionKeys.lists() })
+      // Invalidate available plans
+      queryClient.invalidateQueries({
+        queryKey: [...subscriptionKeys.detail(variables.subscriptionId), 'available-plans'],
+      })
+    },
   })
 }

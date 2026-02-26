@@ -707,3 +707,127 @@ export interface UsageCheckResponse {
   shouldShowNudge: boolean
   trigger?: NudgeTrigger
 }
+
+// =============================================================================
+// PLAN CHANGE TYPES (Subscription Upgrade/Downgrade)
+// =============================================================================
+
+/**
+ * Effective timing for plan changes
+ */
+export type ChangeEffectiveTiming = 'immediate' | 'period_end'
+
+/**
+ * Type of plan change
+ */
+export type ChangeType = 'upgrade' | 'downgrade'
+
+/**
+ * Plan information
+ */
+export interface PlanInfo {
+  product_id: string
+  product_name: string
+  price_id: string
+  amount: number
+  currency: string
+  interval: string
+}
+
+/**
+ * Proration details
+ */
+export interface ProrationInfo {
+  unused_time_credit: number
+  new_plan_charge: number
+  immediate_payment: number
+  credit_applied: number
+  breakdown: string
+}
+
+/**
+ * Input for previewing a plan change
+ */
+export interface PreviewChangeInput {
+  new_price_id: string
+  effective_date?: ChangeEffectiveTiming
+}
+
+/**
+ * Response from POST /subscriptions/:id/preview-change
+ */
+export interface PreviewChangeResponse {
+  current_plan: PlanInfo
+  new_plan: PlanInfo
+  proration: ProrationInfo
+  change_type: ChangeType
+  effective_date: string
+  next_billing_date: string
+  notes: string[]
+}
+
+/**
+ * Input for changing a plan
+ */
+export interface ChangePlanInput {
+  new_price_id: string
+  confirm_amount?: number
+  effective_date?: ChangeEffectiveTiming
+}
+
+/**
+ * Response from POST /subscriptions/:id/change-plan
+ */
+export interface ChangePlanResponse {
+  subscription: {
+    id: string
+    status: string
+    price_id: string
+    current_period_end: string
+  }
+  change: {
+    id: string
+    from_price_id: string
+    to_price_id: string
+    change_type: ChangeType
+    status: string
+    effective_date: string
+  }
+  invoice?: {
+    id: string
+    amount_due: number
+    status: string
+  }
+  message: string
+}
+
+/**
+ * Available plan option
+ */
+export interface AvailablePlan {
+  product_id: string
+  product_name: string
+  description: string | null
+  price_id: string
+  amount: number
+  currency: string
+  interval: string
+  is_free: boolean
+}
+
+/**
+ * Response from GET /subscriptions/:id/available-plans
+ */
+export interface AvailablePlansResponse {
+  current_plan: {
+    product_id: string
+    product_name: string
+    price_id: string
+    amount: number
+    currency: string
+    interval: string
+  } | null
+  available_upgrades: AvailablePlan[]
+  available_downgrades: AvailablePlan[]
+  restrictions: string[]
+}

@@ -29,6 +29,13 @@ export interface PricingTableProps {
   description?: string
   /** Use the new iframe-based checkout modal instead of bottom sheet */
   useCheckoutModal?: boolean
+  /** Callback when plan is changed (for upgrade/downgrade flows) */
+  onPlanChanged?: (subscription: any) => void
+  /** Customer information to prefill in checkout (overrides context) */
+  customer?: {
+    email?: string
+    name?: string
+  }
 }
 
 interface FeatureRow {
@@ -45,6 +52,8 @@ export function PricingTable({
   title = 'Choose Your Plan',
   description,
   useCheckoutModal = false,
+  onPlanChanged,
+  customer: customerProp,
 }: PricingTableProps) {
   const [selectedInterval, setSelectedInterval] = React.useState<'month' | 'year'>(defaultInterval)
   const [selectedPriceId, setSelectedPriceId] = React.useState<string | null>(null)
@@ -52,6 +61,10 @@ export function PricingTable({
 
   // Get customer data from context to prefill checkout form
   const { customerEmail, customerName } = useBillingOS()
+
+  // Use prop customer data if provided, otherwise fall back to context
+  const finalCustomerEmail = customerProp?.email || customerEmail
+  const finalCustomerName = customerProp?.name || customerName
 
   // Get query client for cache invalidation
   const queryClient = useQueryClient()
@@ -61,16 +74,17 @@ export function PricingTable({
 
   // Debug logging
   React.useEffect(() => {
-    console.log('[PricingTable] Customer data from context:', {
-      customerEmail,
-      customerName,
-      hasEmail: !!customerEmail,
-      hasName: !!customerName,
+    console.log('[PricingTable] Customer data:', {
+      fromProp: customerProp,
+      fromContext: { customerEmail, customerName },
+      final: { email: finalCustomerEmail, name: finalCustomerName },
+      hasEmail: !!finalCustomerEmail,
+      hasName: !!finalCustomerName,
     })
-  }, [customerEmail, customerName])
+  }, [customerProp, customerEmail, customerName, finalCustomerEmail, finalCustomerName])
 
   React.useEffect(() => {
-    console.log('📊 BillingOS SDK v1.1.0 - PricingTable rendered - CSS injected')
+    console.log('📊 BillingOS SDK v1.2.0 - PricingTable rendered - CSS injected')
     console.log('%c🚀 BillingOS SDK Version: 1.1.0', 'color: #10b981; font-weight: bold; font-size: 14px;')
     if (useCheckoutModal) {
       console.log(
@@ -173,6 +187,12 @@ export function PricingTable({
     setShowSuccessMessage(true)
     setTimeout(() => setShowSuccessMessage(false), 5000) // Hide after 5 seconds
 
+    // Call onPlanChanged callback if provided (for portal integration)
+    if (onPlanChanged && subscription) {
+      console.log('[PricingTable] Calling onPlanChanged callback...')
+      onPlanChanged(subscription)
+    }
+
     // Force invalidate the products query to bypass stale time
     // This ensures immediate refetch of subscription status
     console.log('%c🔄 Invalidating products cache...', 'color: #8b5cf6; font-weight: 600;')
@@ -212,7 +232,7 @@ export function PricingTable({
     await refetch()
 
     console.log('%c✅ Products cache invalidated and refetched', 'color: #10b981; font-weight: 600;')
-  }, [queryClient, refetch, planIds])
+  }, [queryClient, refetch, planIds, onPlanChanged])
 
   // Loading state
   if (isLoading) {
@@ -465,6 +485,29 @@ export function PricingTable({
                 const isHighlighted = product.highlighted
                 const isCurrentPlan = product.isCurrentPlan
 
+                // Smart button text based on subscription state
+                const hasSubscription = currentSubscription !== null
+                let buttonText = 'Get Started'
+
+                if (isCurrentPlan) {
+                  buttonText = 'Current Plan'
+                } else if (hasSubscription && price && currentSubscription) {
+                  // Get current price for comparison
+                  const currentPrice = products.find(p => p.isCurrentPlan)
+                  const currentPriceAmount = currentPrice
+                    ? getPriceForInterval(currentPrice)?.amount || 0
+                    : 0
+
+                  // Compare prices to determine upgrade/downgrade
+                  if (price.amount > currentPriceAmount) {
+                    buttonText = 'Upgrade'
+                  } else if (price.amount < currentPriceAmount) {
+                    buttonText = 'Downgrade'
+                  } else {
+                    buttonText = 'Switch Plan'
+                  }
+                }
+
                 return (
                   <TableCell
                     key={product.id}
@@ -482,7 +525,7 @@ export function PricingTable({
                         isHighlighted && !isCurrentPlan && "bg-foreground text-background hover:bg-foreground/90"
                       )}
                     >
-                      {isCurrentPlan ? 'Current Plan' : 'Get Started'}
+                      {buttonText}
                     </Button>
                   </TableCell>
                 )
@@ -506,8 +549,8 @@ export function PricingTable({
               }}
               priceId={selectedPriceId}
               customer={{
-                email: customerEmail,
-                name: customerName,
+                email: finalCustomerEmail,
+                name: finalCustomerName,
               }}
               onSuccess={(subscription) => {
                 handlePaymentSuccess(subscription)

@@ -35,6 +35,11 @@ import type {
   RetryInvoiceResponse,
   UpdateCustomerBillingInput,
   CustomerBillingInfo,
+  AvailablePlansResponse,
+  PreviewChangeInput,
+  PreviewChangeResponse,
+  ChangePlanInput,
+  ChangePlanResponse,
   // Checkout types
   CreateCheckoutInput,
   CreateCheckoutResponse,
@@ -343,6 +348,33 @@ export class BillingOSClient {
     input: UpdateSubscriptionInput
   ): Promise<SubscriptionPreview> {
     return this.post<SubscriptionPreview>(`/subscriptions/${id}/preview`, input)
+  }
+
+  /**
+   * Get available plans for upgrade/downgrade
+   */
+  async getAvailablePlans(subscriptionId: string): Promise<AvailablePlansResponse> {
+    return this.get<AvailablePlansResponse>(`/subscriptions/${subscriptionId}/available-plans`)
+  }
+
+  /**
+   * Preview a plan change (upgrade/downgrade) with proration details
+   */
+  async previewPlanChange(
+    subscriptionId: string,
+    input: PreviewChangeInput
+  ): Promise<PreviewChangeResponse> {
+    return this.post<PreviewChangeResponse>(`/subscriptions/${subscriptionId}/preview-change`, input)
+  }
+
+  /**
+   * Execute a plan change (upgrade/downgrade)
+   */
+  async changePlan(
+    subscriptionId: string,
+    input: ChangePlanInput
+  ): Promise<ChangePlanResponse> {
+    return this.post<ChangePlanResponse>(`/subscriptions/${subscriptionId}/change-plan`, input)
   }
 
   // =============================================================================

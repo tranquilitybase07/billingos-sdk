@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { PortalIframe } from './PortalIframe'
 import { usePortalSession } from './hooks/usePortalSession'
 import { usePortalMessaging, IframeMessage } from './hooks/usePortalMessaging'
+import { PricingTable } from '../PricingTable'
 import { cn } from '../../utils/cn'
 import { Alert, AlertDescription } from '../ui/alert'
 
@@ -98,12 +99,14 @@ export function CustomerPortal({
   const [state, setState] = useState<PortalState>('loading')
   const [error, setError] = useState<Error | null>(null)
   const [iframeHeight, setIframeHeight] = useState(600)
+  const [showPricingTable, setShowPricingTable] = useState(false)
+  const [portalCustomer, setPortalCustomer] = useState<{ email?: string; name?: string } | null>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   // Log version on mount (only once)
   useEffect(() => {
     console.log(
-      '%c🚀 BillingOS SDK v1.1.0 - Iframe Customer Portal',
+      '%c🚀 BillingOS SDK v1.2.0 - Iframe Customer Portal with Smart Pricing Table',
       'background: linear-gradient(to right, #667eea, #764ba2); color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;'
     )
     console.log('%c📦 Using iframe for instant updates and security', 'color: #10b981; font-weight: 600;')
@@ -165,6 +168,20 @@ export function CustomerPortal({
             console.log('[CustomerPortal] Height changed to:', message.payload.height)
           }
         }
+        break
+
+      case 'OPEN_PRICING_TABLE':
+        console.log('[CustomerPortal] Opening pricing table for plan change')
+        if (message.payload?.customer) {
+          console.log('[CustomerPortal] Received customer data for prefill:', message.payload.customer)
+          setPortalCustomer(message.payload.customer)
+        }
+        setShowPricingTable(true)
+        break
+
+      case 'CLOSE_PRICING_TABLE':
+        console.log('[CustomerPortal] Closing pricing table')
+        setShowPricingTable(false)
         break
 
       case 'ERROR':
@@ -288,29 +305,21 @@ export function CustomerPortal({
   )
 
   // Render based on mode
-  if (mode === 'page') {
-    return (
-      <div className={cn('relative w-full', className)}>
+  const mainPortal = mode === 'page' ? (
+    <div className={cn('relative w-full', className)}>
+      {portalContent}
+    </div>
+  ) : mode === 'modal' ? (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
+      <DialogContent className={cn('sm:max-w-[800px] p-0 overflow-hidden max-h-[90vh] relative', className)}>
+        <DialogHeader className="sr-only">
+          <DialogTitle>Customer Portal</DialogTitle>
+        </DialogHeader>
         {portalContent}
-      </div>
-    )
-  }
-
-  if (mode === 'modal') {
-    return (
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
-        <DialogContent className={cn('sm:max-w-[800px] p-0 overflow-hidden max-h-[90vh] relative', className)}>
-          <DialogHeader className="sr-only">
-            <DialogTitle>Customer Portal</DialogTitle>
-          </DialogHeader>
-          {portalContent}
-        </DialogContent>
-      </Dialog>
-    )
-  }
-
-  // Default: drawer mode
-  return (
+      </DialogContent>
+    </Dialog>
+  ) : (
+    // Default: drawer mode
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
       <SheetContent
         side="right"
@@ -322,5 +331,39 @@ export function CustomerPortal({
         {portalContent}
       </SheetContent>
     </Sheet>
+  )
+
+  return (
+    <>
+      {mainPortal}
+
+      {/* PricingTable Modal for Plan Changes */}
+      <Dialog open={showPricingTable} onOpenChange={setShowPricingTable}>
+        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Change Your Plan</DialogTitle>
+          </DialogHeader>
+          <PricingTable
+            useCheckoutModal={true}
+            theme={theme}
+            customer={portalCustomer || undefined}
+            onPlanChanged={(subscription) => {
+              console.log('[CustomerPortal] Plan changed successfully:', subscription)
+              // Close the pricing table
+              setShowPricingTable(false)
+              // Clear customer data
+              setPortalCustomer(null)
+              // Send message back to portal iframe to refresh
+              sendMessage({
+                type: 'UPDATE_CONFIG',
+                payload: { refresh: true }
+              })
+              // Notify parent app
+              onSubscriptionUpdate?.(subscription)
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
