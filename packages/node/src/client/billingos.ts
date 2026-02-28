@@ -12,6 +12,10 @@ import type {
   Subscription,
   CreateSubscriptionInput,
   UpdateSubscriptionInput,
+  TrackUsageInput,
+  TrackUsageResponse,
+  EntitlementResponse,
+  UsageMetricsResponse,
 } from '../types/index.js';
 import { APIClient } from './api-client.js';
 import { ValidationError } from '../utils/errors.js';
@@ -223,6 +227,86 @@ export class BillingOS {
    */
   async reactivateSubscription(subscriptionId: string): Promise<Subscription> {
     return this.client.post<Subscription>(`/subscriptions/${subscriptionId}/reactivate`);
+  }
+
+  // ==========================================================================
+  // Usage Tracking
+  // ==========================================================================
+
+  /**
+   * Track usage for a feature
+   *
+   * @example
+   * const result = await billing.trackUsage({
+   *   customerId: 'user_123',
+   *   featureKey: 'api_calls',
+   *   quantity: 1,
+   *   idempotencyKey: 'req_abc123',
+   * });
+   */
+  async trackUsage(input: TrackUsageInput): Promise<TrackUsageResponse> {
+    if (!input.customerId) {
+      throw new ValidationError('customerId is required');
+    }
+    if (!input.featureKey) {
+      throw new ValidationError('featureKey is required');
+    }
+    if (!input.quantity || input.quantity < 1) {
+      throw new ValidationError('quantity must be a positive number');
+    }
+
+    return this.client.post<TrackUsageResponse>('/v1/usage/track', {
+      customer_id: input.customerId,
+      feature_key: input.featureKey,
+      quantity: input.quantity,
+      idempotency_key: input.idempotencyKey,
+      metadata: input.metadata,
+    });
+  }
+
+  /**
+   * Check if a customer has access to a feature
+   *
+   * @example
+   * const entitlement = await billing.checkEntitlement('user_123', 'api_calls');
+   * if (entitlement.has_access) { ... }
+   */
+  async checkEntitlement(
+    customerId: string,
+    featureKey: string,
+  ): Promise<EntitlementResponse> {
+    if (!customerId) {
+      throw new ValidationError('customerId is required');
+    }
+    if (!featureKey) {
+      throw new ValidationError('featureKey is required');
+    }
+
+    return this.client.get<EntitlementResponse>(
+      `/v1/usage/check?customer_id=${encodeURIComponent(customerId)}&feature_key=${encodeURIComponent(featureKey)}`,
+    );
+  }
+
+  /**
+   * Get usage metrics for a customer
+   *
+   * @example
+   * const metrics = await billing.getUsageMetrics('user_123', 'api_calls');
+   */
+  async getUsageMetrics(
+    customerId: string,
+    featureKey?: string,
+  ): Promise<UsageMetricsResponse> {
+    if (!customerId) {
+      throw new ValidationError('customerId is required');
+    }
+
+    let url = `/v1/usage/metrics?customer_id=${encodeURIComponent(customerId)}`;
+    if (featureKey) {
+      url += `&feature_key=${encodeURIComponent(featureKey)}`;
+    }
+
+    return this.client.get<UsageMetricsResponse>(url);
   }
 
   // ==========================================================================

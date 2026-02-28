@@ -149,6 +149,72 @@ export interface WebhookVerificationResult {
 }
 
 // ============================================================================
+// Usage Tracking
+// ============================================================================
+
+export interface TrackUsageInput {
+  /** Customer external ID */
+  customerId: string;
+
+  /** Feature key (e.g., 'api_calls') */
+  featureKey: string;
+
+  /** Number of units to track */
+  quantity: number;
+
+  /** Idempotency key for deduplication */
+  idempotencyKey?: string;
+
+  /** Additional metadata */
+  metadata?: Record<string, any>;
+}
+
+export interface TrackUsageResponse {
+  success: boolean;
+  feature_key: string;
+  quantity: number;
+  recorded_at: string;
+  usage?: {
+    consumed_units: number;
+    limit_units: number;
+    remaining_units: number;
+    period_start: string;
+    period_end: string;
+  };
+}
+
+export interface EntitlementResponse {
+  feature_key: string;
+  has_access: boolean;
+  reason?: string;
+  limit: number | null;
+  usage: number | null;
+  metadata: {
+    remaining?: number;
+    resets_at?: string;
+    type?: string;
+  } | null;
+}
+
+export interface UsageMetric {
+  feature_key: string;
+  feature_title: string;
+  product_name: string;
+  consumed: number;
+  limit: number;
+  remaining: number;
+  percentage_used: number;
+  period_start: string;
+  period_end: string;
+  resets_in_days: number;
+}
+
+export interface UsageMetricsResponse {
+  metrics: UsageMetric[];
+  customer_id: string;
+}
+
+// ============================================================================
 // Errors
 // ============================================================================
 

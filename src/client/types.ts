@@ -112,10 +112,11 @@ export interface CheckEntitlementInput {
  * Usage event for tracking
  */
 export interface UsageEvent {
-  customer_id: string
+  customer_id?: string
   feature_key: string
   quantity: number
   timestamp?: string
+  idempotency_key?: string
   metadata?: Record<string, string>
 }
 

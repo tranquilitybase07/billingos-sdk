@@ -383,16 +383,19 @@ export class BillingOSClient {
 
   /**
    * Check if a customer has access to a feature
+   * Customer ID is resolved server-side from session token
    */
   async checkEntitlement(input: CheckEntitlementInput): Promise<Entitlement> {
-    return this.post<Entitlement>('/entitlements/check', input)
+    return this.get<Entitlement>(`/v1/features/check?feature_key=${encodeURIComponent(input.feature_key)}`)
   }
 
   /**
    * List all entitlements for a customer
+   * Customer ID is resolved server-side from session token
    */
-  async listEntitlements(customerId: string): Promise<Entitlement[]> {
-    return this.get<Entitlement[]>(`/entitlements?customer_id=${customerId}`)
+  async listEntitlements(_customerId?: string): Promise<Entitlement[]> {
+    const response = await this.get<{ entitlements: Entitlement[] }>('/v1/features/entitlements')
+    return response.entitlements
   }
 
   // =============================================================================
@@ -401,18 +404,26 @@ export class BillingOSClient {
 
   /**
    * Track a usage event
+   * Customer ID is resolved server-side from session token
    */
   async trackUsage(event: UsageEvent): Promise<void> {
-    return this.post<void>('/usage/track', event)
+    return this.post<void>('/v1/features/track-usage', {
+      feature_key: event.feature_key,
+      quantity: event.quantity,
+      timestamp: event.timestamp,
+      idempotency_key: event.idempotency_key,
+      metadata: event.metadata,
+    })
   }
 
   /**
    * Get usage metrics for a customer and feature
+   * Customer ID is resolved server-side from session token
    */
-  async getUsageMetrics(customerId: string, featureKey: string): Promise<UsageMetrics> {
-    return this.get<UsageMetrics>(
-      `/usage/metrics?customer_id=${customerId}&feature_key=${featureKey}`
-    )
+  async getUsageMetrics(_customerId?: string, featureKey?: string): Promise<UsageMetrics> {
+    const query = featureKey ? `?feature_key=${encodeURIComponent(featureKey)}` : ''
+    const response = await this.get<{ metrics: UsageMetrics[] }>(`/v1/features/usage-metrics${query}`)
+    return response.metrics?.[0] ?? { feature_key: featureKey || '', current_usage: 0, period_start: '', period_end: '' }
   }
 
   // =============================================================================
@@ -708,9 +719,37 @@ export class BillingOSClient {
 
   /**
    * Check usage and get nudge trigger if applicable
+   * Uses usage-metrics endpoint and computes nudge client-side
    */
   async checkUsage(): Promise<UsageCheckResponse> {
-    return this.get<UsageCheckResponse>('/sdk/usage/check')
+    const response = await this.get<{ metrics: any[] }>('/v1/features/usage-metrics')
+    const metrics = response.metrics || []
+
+    // Check if any feature is near its limit (80% threshold)
+    const atRisk = metrics.find((m: any) => {
+      if (!m.limit || m.limit === 0) return false
+      return (m.consumed / m.limit) * 100 >= 80
+    })
+
+    if (!atRisk) {
+      return { shouldShowNudge: false }
+    }
+
+    return {
+      shouldShowNudge: true,
+      trigger: {
+        type: 'usage_threshold',
+        feature: atRisk.feature_key,
+        threshold: 80,
+        actual: Math.round((atRisk.consumed / atRisk.limit) * 100 * 10) / 10,
+        message: {
+          title: 'Approaching usage limit',
+          body: `You've used ${Math.round((atRisk.consumed / atRisk.limit) * 100)}% of your ${atRisk.feature_title || atRisk.feature_key} limit.`,
+          cta: 'Upgrade plan',
+        },
+        suggestedPlan: { id: '', priceId: '', name: '', price: { amount: 0, currency: 'usd', interval: 'month' }, highlights: [] },
+      },
+    }
   }
 }
 

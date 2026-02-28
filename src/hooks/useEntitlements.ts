@@ -168,11 +168,11 @@ export function useTrackUsage(
     onSuccess: (_data, variables, _context) => {
       // Invalidate usage metrics for this feature
       queryClient.invalidateQueries({
-        queryKey: entitlementKeys.usage(variables.customer_id, variables.feature_key),
+        queryKey: entitlementKeys.usage(variables.customer_id || '', variables.feature_key),
       })
       // Invalidate entitlement check (usage affects has_access)
       queryClient.invalidateQueries({
-        queryKey: entitlementKeys.check(variables.customer_id, variables.feature_key),
+        queryKey: entitlementKeys.check(variables.customer_id || '', variables.feature_key),
       })
     },
   })
