@@ -1,6 +1,6 @@
 {
   "name": "@billingos/sdk",
-  "version": "1.2.0",
+  "version": "0.1.0",
   "description": "React SDK for BillingOS - billing, subscriptions, and payments (with iframe checkout)",
   "type": "module",
   "main": "./dist/index.js",
@@ -24,7 +24,10 @@
     "prepare": "pnpm build && pnpm --filter @billingos/node build",
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm prepare && changeset publish"
   },
   "keywords": [
     "billing",
@@ -39,6 +42,9 @@
   ],
   "author": "BillingOS",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "packageManager": "pnpm@10.26.2",
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",

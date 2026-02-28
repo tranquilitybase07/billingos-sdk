@@ -1,16 +1,17 @@
 {
   "name": "@billingos/supabase",
+  "private": true,
   "version": "0.1.0",
   "description": "Supabase integration for BillingOS - one-line session token setup",
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     }
   },
   "files": [
@@ -36,6 +37,9 @@
   ],
   "author": "BillingOS",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18.0.0"
   },

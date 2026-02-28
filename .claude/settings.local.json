@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pnpm dev)"
+      "Bash(pnpm dev)",
+      "Bash(xargs ls:*)",
+      "Bash(grep:*)",
+      "Bash(pnpm add:*)",
+      "Bash(nvm use:*)"
     ]
   }
 }

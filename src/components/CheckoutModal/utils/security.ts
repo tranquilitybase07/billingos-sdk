@@ -33,7 +33,15 @@ export function getAllowedOrigins(): string[] {
  */
 export function validateOrigin(origin: string): boolean {
   const allowedOrigins = getAllowedOrigins()
-  return allowedOrigins.includes(origin)
+  if (allowedOrigins.includes(origin)) return true
+
+  // Allow BillingOS Vercel deployments
+  if (origin.endsWith('.vercel.app') && origin.includes('billingos')) return true
+
+  // Allow Stripe origins
+  if (origin.endsWith('.stripe.com')) return true
+
+  return false
 }
 
 /**
