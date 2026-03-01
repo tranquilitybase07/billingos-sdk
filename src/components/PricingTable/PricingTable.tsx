@@ -188,7 +188,7 @@ export function PricingTable({
     setTimeout(() => setShowSuccessMessage(false), 5000) // Hide after 5 seconds
 
     // Call onPlanChanged callback if provided (for portal integration)
-    if (onPlanChanged && subscription) {
+    if (onPlanChanged) {
       console.log('[PricingTable] Calling onPlanChanged callback...')
       onPlanChanged(subscription)
     }
