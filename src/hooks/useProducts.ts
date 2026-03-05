@@ -1,3 +1,4 @@
+"use client";
 import { useQuery } from '@tanstack/react-query'
 import { useBillingOS } from '../providers/BillingOSProvider'
 
@@ -26,7 +27,8 @@ export function useProducts() {
   return useQuery<{ products: Product[] }>({
     queryKey: ['billingos', 'products'],
     queryFn: async () => {
-      return await client.get<{ products: Product[] }>('/v1/products')
+      return await client!.get<{ products: Product[] }>('/v1/products')
     },
+    enabled: !!client,
   })
 }

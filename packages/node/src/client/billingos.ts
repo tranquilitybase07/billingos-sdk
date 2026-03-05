@@ -35,7 +35,7 @@ export class BillingOS {
     }
 
     this.config = {
-      apiUrl: config.apiUrl || 'http://localhost:3001',
+      apiUrl: config.apiUrl || process.env.BILLINGOS_API_URL || 'https://api.billingos.dev',
       timeout: config.timeout || 30000,
       maxRetries: config.maxRetries || 3,
       ...config,

@@ -1,110 +1,93 @@
+"use client";
 import React, { createContext, useContext, useMemo } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BillingOSClient, BillingOSClientOptions } from '../client'
 import { useSessionToken, UseSessionTokenOptions } from '../hooks/useSessionToken'
+import { resolveApiUrl, resolveAppUrl } from '../utils/urls'
 
 /**
  * Context value provided by BillingOSProvider
  */
 export interface BillingOSContextValue {
-  /**
-   * The BillingOS API client instance
-   */
-  client: BillingOSClient
-
-  /**
-   * Optional customer ID for the current user
-   */
+  client: BillingOSClient | null
+  apiUrl: string
+  appUrl: string
   customerId?: string
-
-  /**
-   * Optional customer email
-   */
   customerEmail?: string
-
-  /**
-   * Optional customer name
-   */
   customerName?: string
-
-  /**
-   * Optional organization ID
-   */
   organizationId?: string
+  debug: boolean
 }
 
-/**
- * React Context for BillingOS SDK
- */
 const BillingOSContext = createContext<BillingOSContextValue | undefined>(undefined)
 
-/**
- * Props for BillingOSProvider
- */
 export interface BillingOSProviderProps {
   /**
-   * Session token - can be provided directly OR fetched automatically from tokenUrl
-   * Use this when you already have a session token
+   * Base URL for the BillingOS API (e.g. https://api.billingos.dev or http://localhost:3001).
+   * Falls back to NEXT_PUBLIC_BILLINGOS_API_URL env var.
    */
-  sessionToken?: string
+  apiUrl?: string
 
   /**
-   * URL to fetch session token from (e.g., /api/billingos-session)
-   * The SDK will automatically fetch and refresh the token
+   * Base URL for the BillingOS app (used for iframe checkout/portal embeds).
+   * Falls back to NEXT_PUBLIC_BILLINGOS_APP_URL env var, then window.location.origin.
+   */
+  appUrl?: string
+
+  /**
+   * URL to fetch session token from (e.g., /api/billingos-session).
+   * The SDK will automatically fetch and refresh the token.
    */
   sessionTokenUrl?: string
 
   /**
-   * Session token options (auto-refresh settings, error handlers, etc.)
+   * Provide a session token directly instead of auto-fetching.
+   */
+  sessionToken?: string
+
+  /**
+   * Session token auto-refresh configuration.
    */
   sessionTokenOptions?: Omit<UseSessionTokenOptions, 'token' | 'tokenUrl'>
 
   /**
-   * Optional customer ID for the current user
+   * Rendered while the session token is being fetched.
+   * Defaults to rendering children (app is visible immediately, billing components show their own loading state).
+   */
+  loadingFallback?: React.ReactNode
+
+  /**
+   * Optional customer context passed to all hooks and components.
    */
   customerId?: string
-
-  /**
-   * Optional customer email
-   */
   customerEmail?: string
-
-  /**
-   * Optional customer name
-   */
   customerName?: string
-
-  /**
-   * Optional organization ID
-   */
   organizationId?: string
 
   /**
-   * Client configuration options
+   * Additional client configuration (headers, timeout, etc.).
    */
   options?: BillingOSClientOptions
 
   /**
-   * Optional custom QueryClient instance
-   * If not provided, a default one will be created
+   * Inject a custom TanStack QueryClient.
    */
   queryClient?: QueryClient
 
   /**
-   * Child components
+   * Enable debug logging. Off by default.
    */
+  debug?: boolean
+
   children: React.ReactNode
 }
 
-/**
- * Default QueryClient configuration
- */
 const createDefaultQueryClient = () =>
   new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 1000 * 60 * 5, // 5 minutes
-        gcTime: 1000 * 60 * 10, // 10 minutes (formerly cacheTime)
+        staleTime: 1000 * 60 * 5,
+        gcTime: 1000 * 60 * 10,
         retry: 1,
         refetchOnWindowFocus: false,
       },
@@ -114,106 +97,88 @@ const createDefaultQueryClient = () =>
     },
   })
 
-/**
- * Provider component for BillingOS SDK
- *
- * Wraps your app and provides the BillingOS client to all hooks and components.
- *
- * @example
- * Auto-fetch session token from endpoint:
- * ```tsx
- * import { BillingOSProvider } from '@billingos/sdk'
- *
- * function App() {
- *   return (
- *     <BillingOSProvider
- *       sessionTokenUrl="/api/billingos-session"
- *       customerId="customer_123"
- *     >
- *       <YourApp />
- *     </BillingOSProvider>
- *   )
- * }
- * ```
- *
- * @example
- * Manually provide session token:
- * ```tsx
- * function App() {
- *   const [sessionToken, setSessionToken] = useState('bos_session_...')
- *
- *   return (
- *     <BillingOSProvider sessionToken={sessionToken}>
- *       <YourApp />
- *     </BillingOSProvider>
- *   )
- * }
- * ```
- */
 export function BillingOSProvider({
+  apiUrl: apiUrlProp,
+  appUrl: appUrlProp,
   sessionToken: manualSessionToken,
   sessionTokenUrl,
   sessionTokenOptions,
+  loadingFallback,
   customerId,
   customerEmail,
   customerName,
   organizationId,
   options,
   queryClient,
+  debug = false,
   children,
 }: BillingOSProviderProps) {
-  // Log SDK version on mount
-  React.useEffect(() => {
-    console.log('%c🚀 BillingOS SDK v1.2.0 Initialized', 'color: #10b981; font-weight: bold; font-size: 16px;')
-    console.log('✨ Features: Real-time subscription updates, Customer data prefill, Iframe checkout')
-  }, [])
+  // Resolve URLs once (throws with actionable message if apiUrl is missing)
+  const apiUrl = useMemo(() => resolveApiUrl(apiUrlProp), [apiUrlProp])
+  const appUrl = useMemo(() => resolveAppUrl(appUrlProp), [appUrlProp])
 
-  // Fetch and manage session token
   const { token, isLoading, error } = useSessionToken({
     token: manualSessionToken,
     tokenUrl: sessionTokenUrl,
     ...sessionTokenOptions,
   })
 
-  // Use provided QueryClient or create default
   const qc = useMemo(
     () => queryClient || createDefaultQueryClient(),
     [queryClient]
   )
 
-  // Create BillingOS client instance (conditionally, but hook always called)
   const client = useMemo(
-    () => token ? new BillingOSClient(token, options) : null,
-    [token, options]
+    () =>
+      token
+        ? new BillingOSClient(token, { baseUrl: apiUrl, ...options })
+        : null,
+    [token, apiUrl, options]
   )
 
-  // Context value (conditionally, but hook always called)
-  const contextValue = useMemo<BillingOSContextValue | null>(
-    () => client ? {
+  const contextValue = useMemo<BillingOSContextValue>(
+    () => ({
       client,
+      apiUrl,
+      appUrl,
       customerId,
       customerEmail,
       customerName,
       organizationId,
-    } : null,
-    [client, customerId, customerEmail, customerName, organizationId]
+      debug,
+    }),
+    [client, apiUrl, appUrl, customerId, customerEmail, customerName, organizationId, debug]
   )
 
-  // Show loading state while fetching token
   if (sessionTokenUrl && isLoading) {
-    return null // or a loading spinner
+    if (debug) console.log('[BillingOS] Fetching session token...')
+    return (
+      <BillingOSContext.Provider value={contextValue}>
+        <QueryClientProvider client={qc}>
+          {loadingFallback !== undefined ? loadingFallback : children}
+        </QueryClientProvider>
+      </BillingOSContext.Provider>
+    )
   }
 
-  // Show error if token fetch failed
   if (sessionTokenUrl && error) {
-    console.error('Failed to fetch BillingOS session token:', error)
-    return null // or an error component
+    console.error('[BillingOS] Failed to fetch session token:', error)
+    return (
+      <BillingOSContext.Provider value={contextValue}>
+        <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+      </BillingOSContext.Provider>
+    )
   }
 
-  // Don't render if no token available
-  if (!token || !client || !contextValue) {
-    console.error('BillingOS: No session token provided. Use sessionToken or sessionTokenUrl prop.')
-    return null
+  if (!token) {
+    if (debug) {
+      console.warn('[BillingOS] No session token available. Pass sessionToken or sessionTokenUrl.')
+    }
+    return (
+      <BillingOSContext.Provider value={contextValue}>
+        <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+      </BillingOSContext.Provider>
+    )
   }
 
   return (
@@ -223,25 +188,6 @@ export function BillingOSProvider({
   )
 }
 
-/**
- * Hook to access the BillingOS context
- *
- * Must be used within a BillingOSProvider.
- *
- * @throws Error if used outside of BillingOSProvider
- *
- * @example
- * ```tsx
- * function MyComponent() {
- *   const { client, customerId } = useBillingOS()
- *
- *   // Use client to make API calls
- *   const subscription = await client.getSubscription(id)
- *
- *   return <div>Customer: {customerId}</div>
- * }
- * ```
- */
 export function useBillingOS(): BillingOSContextValue {
   const context = useContext(BillingOSContext)
 
@@ -255,28 +201,4 @@ export function useBillingOS(): BillingOSContextValue {
   return context
 }
 
-/**
- * Hook to access the React Query client used by BillingOS SDK
- *
- * Useful for manual query invalidation or cache management.
- *
- * Must be used within a BillingOSProvider.
- *
- * @example
- * ```tsx
- * import { useBillingOSQueryClient } from '@billingos/sdk'
- * import { useQueryClient } from '@tanstack/react-query'
- *
- * function MyComponent() {
- *   const queryClient = useBillingOSQueryClient()
- *
- *   const handleRefresh = () => {
- *     // Invalidate products query to refresh pricing table
- *     queryClient.invalidateQueries({ queryKey: ['billingos', 'products'] })
- *   }
- *
- *   return <button onClick={handleRefresh}>Refresh</button>
- * }
- * ```
- */
 export { useQueryClient as useBillingOSQueryClient } from '@tanstack/react-query'

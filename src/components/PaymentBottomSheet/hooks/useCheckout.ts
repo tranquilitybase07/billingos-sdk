@@ -1,3 +1,4 @@
+"use client";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useBillingOS } from '../../../providers/BillingOSProvider'
 import type {
@@ -23,9 +24,9 @@ export function useCreateCheckout(
     queryKey: ['checkout', input?.priceId, input?.existingSubscriptionId],
     queryFn: async () => {
       if (!input) throw new Error('Checkout input is required')
-      return client.createCheckout(input)
+      return client!.createCheckout(input)
     },
-    enabled: options?.enabled !== false && !!input,
+    enabled: !!client && options?.enabled !== false && !!input,
     staleTime: 0, // Always fetch fresh checkout session
     gcTime: 0, // Don't cache checkout sessions
   })
@@ -49,6 +50,7 @@ export function useConfirmCheckout(options?: {
       clientSecret: string
       paymentMethodId: string
     }) => {
+      if (!client) throw new Error('[BillingOS] No active session')
       return client.confirmCheckout(clientSecret, paymentMethodId)
     },
     onSuccess: (data) => {

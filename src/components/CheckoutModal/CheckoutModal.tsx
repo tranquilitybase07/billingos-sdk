@@ -1,8 +1,10 @@
+"use client";
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Dialog, DialogContent } from '../ui/dialog'
 import { CheckoutIframe } from './CheckoutIframe'
 import { useCheckoutSession } from './hooks/useCheckoutSession'
 import { useIframeMessaging } from './hooks/useIframeMessaging'
+import { useBillingOS } from '../../providers/BillingOSProvider'
 import type { IframeMessage } from './utils/messaging'
 import { cn } from '../../utils/cn'
 
@@ -105,22 +107,16 @@ export function CheckoutModal({
   onCancel,
   debug = false
 }: CheckoutModalProps) {
+  const { appUrl, debug: contextDebug } = useBillingOS()
+  const isDebug = debug || contextDebug
+
   const [state, setState] = useState<CheckoutState>('loading')
   const [error, setError] = useState<Error | null>(null)
   const [iframeHeight, setIframeHeight] = useState(600)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  // Log version on mount
   useEffect(() => {
-    console.log(
-      '%c🚀 BillingOS SDK v1.2.0 loaded with Iframe Checkout',
-      'background: linear-gradient(to right, #667eea, #764ba2); color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;'
-    )
-    console.log('%c📦 Using iframe for PCI compliance and security', 'color: #10b981; font-weight: 600;')
-    console.log('%c✨ Customer prefill support enabled', 'color: #8b5cf6; font-weight: 600;')
-    if (debug) {
-      console.log('[CheckoutModal] Debug mode enabled')
-    }
+    if (isDebug) console.log('[BillingOS] CheckoutModal mounted')
   }, [])
 
   // Create checkout session when modal opens
@@ -135,24 +131,16 @@ export function CheckoutModal({
 
   // Handle iframe messaging
   const handleIframeMessage = useCallback((message: IframeMessage) => {
-    console.log('[CheckoutModal] Received message from iframe:', message.type, message)
+    if (isDebug) console.log('[BillingOS] Iframe message:', message.type, message)
 
     switch (message.type) {
       case 'CHECKOUT_READY':
-        console.log('[CheckoutModal] Checkout is ready')
         setState('ready')
         break
 
       case 'CHECKOUT_SUCCESS':
-        console.log('[CheckoutModal] Payment SUCCESS! Subscription:', message.payload?.subscription)
         setState('success')
-        if (message.payload?.subscription) {
-          console.log('[CheckoutModal] Calling onSuccess with subscription data')
-          onSuccess(message.payload.subscription)
-        } else {
-          console.log('[CheckoutModal] No subscription data, calling onSuccess with undefined')
-          onSuccess(undefined)
-        }
+        onSuccess(message.payload?.subscription)
         onOpenChange(false)
         break
 
@@ -182,12 +170,13 @@ export function CheckoutModal({
       default:
         break
     }
-  }, [debug, onSuccess, onError, onCancel, onOpenChange])
+  }, [isDebug, onSuccess, onError, onCancel, onOpenChange])
 
   const { sendMessage } = useIframeMessaging({
     iframeRef,
     onMessage: handleIframeMessage,
-    debug
+    targetOrigin: appUrl || '*',
+    debug: isDebug
   })
 
   // Send initialization message when iframe is ready

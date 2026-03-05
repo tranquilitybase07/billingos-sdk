@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useCallback, RefObject } from 'react'
 
 export interface IframeMessage {

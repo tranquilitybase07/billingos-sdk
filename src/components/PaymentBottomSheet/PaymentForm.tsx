@@ -1,3 +1,4 @@
+"use client";
 import * as React from 'react'
 import {
   PaymentElement,
@@ -74,7 +75,7 @@ export function PaymentForm({
       // Payment successful - confirm with backend to create subscription
       if (paymentIntent?.status === 'succeeded' && paymentIntent.payment_method) {
         try {
-          const result = await client.confirmCheckout(
+          const result = await client!.confirmCheckout(
             checkoutSession.clientSecret,
             paymentIntent.payment_method as string
           )

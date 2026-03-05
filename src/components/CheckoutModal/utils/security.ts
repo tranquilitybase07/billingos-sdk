@@ -3,22 +3,38 @@
  */
 
 /**
- * Get allowed origins for iframe communication
+ * Get allowed origins for iframe communication.
+ * Pass the appUrl from BillingOSProvider context to include the configured app origin.
  */
-export function getAllowedOrigins(): string[] {
+export function getAllowedOrigins(appUrl?: string): string[] {
   const origins: string[] = []
 
-  // Add configured app URL
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    origins.push(process.env.NEXT_PUBLIC_APP_URL)
+  // Add the configured app URL from context (highest priority)
+  if (appUrl) {
+    try {
+      origins.push(new URL(appUrl).origin)
+    } catch {
+      // ignore malformed URLs
+    }
   }
 
-  // Add BillingOS domains
-  origins.push('https://app.billingos.com')
-  origins.push('https://embed.billingos.com')
+  // Add legacy env var (NEXT_PUBLIC_BILLINGOS_APP_URL takes precedence)
+  const envAppUrl =
+    (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BILLINGOS_APP_URL) || ''
+  if (envAppUrl && !origins.includes(new URL(envAppUrl).origin)) {
+    try {
+      origins.push(new URL(envAppUrl).origin)
+    } catch {
+      // ignore
+    }
+  }
+
+  // Add known BillingOS production domains
+  origins.push('https://app.billingos.dev')
+  origins.push('https://embed.billingos.dev')
 
   // Add localhost for development
-  if (process.env.NODE_ENV === 'development') {
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
     origins.push('http://localhost:3000')
     origins.push('http://localhost:3001')
     origins.push('http://127.0.0.1:3000')
@@ -29,10 +45,11 @@ export function getAllowedOrigins(): string[] {
 }
 
 /**
- * Validate message origin
+ * Validate message origin.
+ * Pass appUrl from BillingOSProvider context when available.
  */
-export function validateOrigin(origin: string): boolean {
-  const allowedOrigins = getAllowedOrigins()
+export function validateOrigin(origin: string, appUrl?: string): boolean {
+  const allowedOrigins = getAllowedOrigins(appUrl)
   if (allowedOrigins.includes(origin)) return true
 
   // Allow BillingOS Vercel deployments

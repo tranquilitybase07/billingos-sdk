@@ -1,3 +1,4 @@
+"use client";
 import { Progress } from '../../ui/progress'
 import { cn } from '@/utils/cn'
 import type { PortalUsageInfo } from '../../../client/types'

@@ -1,3 +1,4 @@
+"use client";
 import { useQuery } from '@tanstack/react-query'
 import { useBillingOS } from '../../../providers/BillingOSProvider'
 import type { GetProductsResponse } from '../../../client/types'
@@ -23,9 +24,9 @@ export function useProducts(options: UseProductsOptions = {}) {
   return useQuery<GetProductsResponse, Error>({
     queryKey: ['products', planIds],
     queryFn: async () => {
-      return client.getProducts(planIds)
+      return client!.getProducts(planIds)
     },
-    enabled,
+    enabled: !!client && enabled,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
   })

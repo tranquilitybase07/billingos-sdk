@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useCallback, RefObject } from 'react'
 import { validateOrigin } from '../utils/security'
 import type { IframeMessage, ParentMessage } from '../utils/messaging'
@@ -17,7 +18,7 @@ interface UseIframeMessagingReturn {
 export function useIframeMessaging({
   iframeRef,
   onMessage,
-  targetOrigin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  targetOrigin = '*',
   debug = false
 }: UseIframeMessagingOptions): UseIframeMessagingReturn {
   const isConnected = Boolean(iframeRef.current?.contentWindow)
@@ -41,10 +42,10 @@ export function useIframeMessaging({
    */
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Validate origin
-      if (!validateOrigin(event.origin)) {
+      // Validate origin (pass targetOrigin so the configured app URL is always allowed)
+      if (targetOrigin !== '*' && !validateOrigin(event.origin, targetOrigin)) {
         if (debug) {
-          console.warn(`[useIframeMessaging] Invalid origin: ${event.origin}`)
+          console.warn(`[BillingOS] Blocked message from unexpected origin: ${event.origin}`)
         }
         return
       }

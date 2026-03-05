@@ -1,3 +1,4 @@
+"use client";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useBillingOS } from '../providers/BillingOSProvider'
 
@@ -53,12 +54,12 @@ export function useFeature(featureKey: string, options?: {
   return useQuery<FeatureAccess>({
     queryKey: ['billingos', 'features', featureKey],
     queryFn: async () => {
-      return await client.get<FeatureAccess>(
+      return await client!.get<FeatureAccess>(
         `/v1/features/check?feature_key=${featureKey}`
       )
     },
     refetchInterval: options?.refetchInterval,
-    enabled: options?.enabled !== false,
+    enabled: !!client && options?.enabled !== false,
   })
 }
 
@@ -79,6 +80,7 @@ export function useTrackUsage() {
       quantity: number
       metadata?: Record<string, any>
     }) => {
+      if (!client) throw new Error('[BillingOS] No active session')
       return await client.post('/v1/features/track-usage', {
         feature_key: featureKey,
         quantity,
@@ -107,10 +109,11 @@ export function useFeatureEntitlements() {
   return useQuery<{ entitlements: FeatureEntitlement[] }>({
     queryKey: ['billingos', 'entitlements'],
     queryFn: async () => {
-      return await client.get<{ entitlements: FeatureEntitlement[] }>(
+      return await client!.get<{ entitlements: FeatureEntitlement[] }>(
         '/v1/features/entitlements'
       )
     },
+    enabled: !!client,
   })
 }
 
@@ -126,8 +129,9 @@ export function useUsageMetrics(featureKey?: string) {
       const url = featureKey
         ? `/v1/features/usage-metrics?feature_key=${featureKey}`
         : '/v1/features/usage-metrics'
-      return await client.get<{ metrics: UsageMetric[] }>(url)
+      return await client!.get<{ metrics: UsageMetric[] }>(url)
     },
+    enabled: !!client,
     // Refresh every 30 seconds to keep usage data fresh
     refetchInterval: 30000,
   })

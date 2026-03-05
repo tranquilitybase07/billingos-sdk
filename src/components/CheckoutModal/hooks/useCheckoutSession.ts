@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+"use client";
+import { useState, useEffect, useRef } from 'react'
 import { useBillingOS } from '../../../providers/BillingOSProvider'
 
 interface UseCheckoutSessionOptions {
@@ -30,20 +31,21 @@ export function useCheckoutSession({
   metadata,
   existingSubscriptionId
 }: UseCheckoutSessionOptions): UseCheckoutSessionReturn {
-  const { client } = useBillingOS()
+  const { client, appUrl, debug } = useBillingOS()
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionUrl, setSessionUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  // Track which priceId we've already initiated a session for.
+  // Using a ref instead of state so React Strict Mode's double-mount
+  // doesn't reset it between the first and second effect invocation,
+  // preventing the duplicate checkout session creation.
+  const initiatedForPriceRef = useRef<string | null>(null)
 
   const createSession = async () => {
-    if (!enabled || !priceId) return
+    if (!enabled || !priceId || !client) return
 
-    console.log(
-      '%c🔄 Creating checkout session...',
-      'color: #3b82f6; font-weight: 600;',
-      { priceId, customer }
-    )
+    if (debug) console.log('[BillingOS] Creating checkout session...', { priceId, customer })
 
     setLoading(true)
     setError(null)
@@ -61,24 +63,13 @@ export function useCheckoutSession({
       })
 
       setSessionId(session.id)
-      console.log(
-        '%c✨ Session created!',
-        'color: #10b981; font-weight: 600;',
-        `ID: ${session.id}`
-      )
+      if (debug) console.log('[BillingOS] Checkout session created:', session.id)
 
-      // Generate iframe URL
-      // The iframe should always load from the BillingOS web app, not the merchant's app
-      // In production, this would be your BillingOS domain (e.g., https://app.billingos.com)
-      const billingOSAppUrl = process.env.NEXT_PUBLIC_BILLINGOS_APP_URL || 'http://localhost:3000'
-      const iframeUrl = `${billingOSAppUrl}/embed/checkout/${session.id}`
+      // Generate iframe URL using appUrl from BillingOSProvider context
+      const iframeUrl = `${appUrl}/embed/checkout/${session.id}`
       setSessionUrl(iframeUrl)
 
-      console.log(
-        '%c📍 Iframe URL ready',
-        'color: #8b5cf6; font-weight: 600;',
-        iframeUrl
-      )
+      if (debug) console.log('[BillingOS] Iframe URL:', iframeUrl)
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to create checkout session')
       setError(error)
@@ -88,9 +79,13 @@ export function useCheckoutSession({
     }
   }
 
-  // Create session when enabled
+  // Create session when enabled.
+  // Guard with a ref so React Strict Mode's double-invocation of effects
+  // doesn't fire two simultaneous API calls (state resets between mounts
+  // but refs persist, so the second effect sees the guard and skips).
   useEffect(() => {
-    if (enabled && !sessionId) {
+    if (enabled && initiatedForPriceRef.current !== priceId) {
+      initiatedForPriceRef.current = priceId
       createSession()
     }
   }, [enabled, priceId])

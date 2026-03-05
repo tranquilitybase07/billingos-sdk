@@ -1,3 +1,4 @@
+"use client";
 import { useQuery, useMutation, useQueryClient, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query'
 import { useBillingOS } from '../providers'
 import type {
@@ -56,8 +57,8 @@ export function useSubscription(
 
   return useQuery({
     queryKey: subscriptionKeys.detail(id),
-    queryFn: () => client.getSubscription(id),
-    enabled: !!id,
+    queryFn: () => client!.getSubscription(id),
+    enabled: !!client && !!id,
     ...options,
   })
 }
@@ -102,7 +103,8 @@ export function useSubscriptions(
 
   return useQuery({
     queryKey: subscriptionKeys.list(params),
-    queryFn: () => client.listSubscriptions(params),
+    queryFn: () => client!.listSubscriptions(params),
+    enabled: !!client,
     ...options,
   })
 }
@@ -152,7 +154,10 @@ export function useCreateSubscription(
 
   return useMutation({
     ...options,
-    mutationFn: (input: CreateSubscriptionInput) => client.createSubscription(input),
+    mutationFn: (input: CreateSubscriptionInput) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.createSubscription(input)
+    },
     onSuccess: (_data, _variables, _context) => {
       // Invalidate subscription lists
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.lists() })
@@ -198,8 +203,10 @@ export function useUpdateSubscription(
 
   return useMutation({
     ...options,
-    mutationFn: (input: UpdateSubscriptionInput) =>
-      client.updateSubscription(subscriptionId, input),
+    mutationFn: (input: UpdateSubscriptionInput) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.updateSubscription(subscriptionId, input)
+    },
     onSuccess: (_data, _variables, _context) => {
       // Invalidate this subscription's cache
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.detail(subscriptionId) })
@@ -252,8 +259,10 @@ export function useCancelSubscription(
 
   return useMutation({
     ...options,
-    mutationFn: ({ immediately = false }: { immediately?: boolean }) =>
-      client.cancelSubscription(subscriptionId, immediately),
+    mutationFn: ({ immediately = false }: { immediately?: boolean }) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.cancelSubscription(subscriptionId, immediately)
+    },
     onSuccess: (_data, _variables, _context) => {
       // Invalidate this subscription's cache
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.detail(subscriptionId) })
@@ -294,7 +303,10 @@ export function useReactivateSubscription(
 
   return useMutation({
     ...options,
-    mutationFn: () => client.reactivateSubscription(subscriptionId),
+    mutationFn: () => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.reactivateSubscription(subscriptionId)
+    },
     onSuccess: (_data, _variables, _context) => {
       // Invalidate this subscription's cache
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.detail(subscriptionId) })
@@ -340,8 +352,8 @@ export function useSubscriptionPreview(
 
   return useQuery({
     queryKey: subscriptionKeys.preview(subscriptionId, input),
-    queryFn: () => client.previewSubscription(subscriptionId, input),
-    enabled: !!subscriptionId && !!input,
+    queryFn: () => client!.previewSubscription(subscriptionId, input),
+    enabled: !!client && !!subscriptionId && !!input,
     ...options,
   })
 }
@@ -378,8 +390,8 @@ export function useAvailablePlans(
 
   return useQuery({
     queryKey: [...subscriptionKeys.detail(subscriptionId), 'available-plans'] as const,
-    queryFn: () => client.getAvailablePlans(subscriptionId),
-    enabled: !!subscriptionId,
+    queryFn: () => client!.getAvailablePlans(subscriptionId),
+    enabled: !!client && !!subscriptionId,
     ...options,
   })
 }
@@ -420,8 +432,10 @@ export function usePreviewPlanChange(
 
   return useMutation({
     ...options,
-    mutationFn: ({ subscriptionId, input }) =>
-      client.previewPlanChange(subscriptionId, input),
+    mutationFn: ({ subscriptionId, input }) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.previewPlanChange(subscriptionId, input)
+    },
   })
 }
 
@@ -472,8 +486,10 @@ export function useChangePlan(
 
   return useMutation({
     ...options,
-    mutationFn: ({ subscriptionId, input }) =>
-      client.changePlan(subscriptionId, input),
+    mutationFn: ({ subscriptionId, input }) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.changePlan(subscriptionId, input)
+    },
     onSuccess: (_data, variables, _context) => {
       // Invalidate subscription cache
       queryClient.invalidateQueries({

@@ -1,3 +1,4 @@
+"use client";
 import { useUsageMetrics } from '../../hooks/useFeature'
 
 export interface UsageDisplayProps {

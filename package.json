@@ -1,6 +1,6 @@
 {
   "name": "@billingos/sdk",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "React SDK for BillingOS - billing, subscriptions, and payments (with iframe checkout)",
   "type": "module",
   "main": "./dist/index.js",
@@ -18,11 +18,10 @@
     "README.md",
     "LICENSE"
   ],
+  "sideEffects": ["./src/styles/inject.ts", "./dist/index.mjs", "./dist/index.js"],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsup",
     "prepare": "pnpm build && pnpm --filter @billingos/node build",
-    "preview": "vite preview",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "changeset": "changeset",
@@ -51,8 +50,7 @@
     "react-dom": "^18.0.0 || ^19.0.0",
     "@stripe/react-stripe-js": "^4.0.2",
     "@stripe/stripe-js": "^7.1.0",
-    "@tanstack/react-query": "^5.90.0",
-    "react-hook-form": "^7.68.0"
+    "@tanstack/react-query": "^5.90.0"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -72,8 +70,6 @@
     "@types/react-dom": "^19.0.3",
     "@typescript-eslint/eslint-plugin": "^8.19.1",
     "@typescript-eslint/parser": "^8.19.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
     "eslint": "^9.18.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.16",
@@ -81,11 +77,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.68.0",
-    "rollup-plugin-peer-deps-external": "^2.2.4",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5.7.3",
-    "vite": "^6.0.11",
-    "vite-plugin-css-injected-by-js": "^3.5.2",
-    "vite-plugin-dts": "^4.4.0"
+    "tsup": "^8.5.1",
+    "typescript": "^5.7.3"
   }
 }

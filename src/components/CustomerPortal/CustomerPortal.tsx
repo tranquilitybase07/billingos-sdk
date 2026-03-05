@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../ui/sheet'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'

@@ -1,3 +1,4 @@
+"use client";
 // Session token hooks
 export * from './useSessionToken'
 

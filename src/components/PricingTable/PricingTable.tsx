@@ -1,3 +1,4 @@
+"use client";
 import * as React from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Skeleton } from '../ui/skeleton'
@@ -59,8 +60,8 @@ export function PricingTable({
   const [selectedPriceId, setSelectedPriceId] = React.useState<string | null>(null)
   const [isPaymentOpen, setIsPaymentOpen] = React.useState(false)
 
-  // Get customer data from context to prefill checkout form
-  const { customerEmail, customerName } = useBillingOS()
+  // Get customer data and debug flag from context
+  const { customerEmail, customerName, debug } = useBillingOS()
 
   // Use prop customer data if provided, otherwise fall back to context
   const finalCustomerEmail = customerProp?.email || customerEmail
@@ -72,29 +73,15 @@ export function PricingTable({
   // State for success notification
   const [showSuccessMessage, setShowSuccessMessage] = React.useState(false)
 
-  // Debug logging
   React.useEffect(() => {
-    console.log('[PricingTable] Customer data:', {
-      fromProp: customerProp,
-      fromContext: { customerEmail, customerName },
-      final: { email: finalCustomerEmail, name: finalCustomerName },
-      hasEmail: !!finalCustomerEmail,
-      hasName: !!finalCustomerName,
-    })
-  }, [customerProp, customerEmail, customerName, finalCustomerEmail, finalCustomerName])
-
-  React.useEffect(() => {
-    console.log('📊 BillingOS SDK v1.2.0 - PricingTable rendered - CSS injected')
-    console.log('%c🚀 BillingOS SDK Version: 1.1.0', 'color: #10b981; font-weight: bold; font-size: 14px;')
-    if (useCheckoutModal) {
-      console.log(
-        '%c🎉 Using NEW Iframe-based CheckoutModal with Real-time Updates!',
-        'background: linear-gradient(to right, #10b981, #3b82f6); color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;'
-      )
-    } else {
-      console.log('📦 Using PaymentBottomSheet (legacy)')
+    if (debug) {
+      console.log('[BillingOS] PricingTable customer data:', {
+        fromProp: customerProp,
+        fromContext: { customerEmail, customerName },
+        final: { email: finalCustomerEmail, name: finalCustomerName },
+      })
     }
-  }, [useCheckoutModal])
+  }, [debug, customerProp, customerEmail, customerName, finalCustomerEmail, finalCustomerName])
 
   const { data, isLoading, error, refetch } = useProducts({ planIds })
 
@@ -175,64 +162,41 @@ export function PricingTable({
 
   // Handle payment success with real-time update
   const handlePaymentSuccess = React.useCallback(async (subscription?: any) => {
-    console.log('%c🎉 [PricingTable] handlePaymentSuccess CALLED!', 'color: #10b981; font-size: 14px; font-weight: bold;', subscription)
-    console.log('[PricingTable] Subscription data:', subscription)
+    if (debug) console.log('[BillingOS] Payment success:', subscription)
 
-    // Close the payment modal
     setIsPaymentOpen(false)
     setSelectedPriceId(null)
-
-    // Show success message
-    console.log('[PricingTable] Showing success notification...')
     setShowSuccessMessage(true)
-    setTimeout(() => setShowSuccessMessage(false), 5000) // Hide after 5 seconds
+    setTimeout(() => setShowSuccessMessage(false), 5000)
 
-    // Call onPlanChanged callback if provided (for portal integration)
     if (onPlanChanged) {
-      console.log('[PricingTable] Calling onPlanChanged callback...')
       onPlanChanged(subscription)
     }
 
-    // Force invalidate the products query to bypass stale time
-    // This ensures immediate refetch of subscription status
-    console.log('%c🔄 Invalidating products cache...', 'color: #8b5cf6; font-weight: 600;')
+    // Force invalidate the products query to ensure immediate refetch of subscription status
     await queryClient.invalidateQueries({
       queryKey: ['products'],
-      refetchType: 'all' // Force refetch even if not stale
+      refetchType: 'all'
     })
 
-    // If subscription data is provided, we can also optimistically update the cache
     if (subscription) {
-      console.log('[PricingTable] Optimistically updating cache with subscription:', subscription)
-
       queryClient.setQueryData(['products', planIds], (oldData: any) => {
         if (!oldData) return oldData
-
-        console.log('[PricingTable] Updating cache - old data:', oldData)
-
-        const updatedData = {
+        return {
           ...oldData,
           currentSubscription: subscription,
           products: oldData.products?.map((product: any) => ({
             ...product,
-            // Update isCurrentPlan based on the new subscription
             isCurrentPlan: product.prices?.some((price: any) =>
               price.id === subscription.priceId
             ) || false
           }))
         }
-
-        console.log('[PricingTable] Updated cache data:', updatedData)
-        return updatedData
       })
     }
 
-    // Also trigger a background refetch to ensure data consistency
-    console.log('[PricingTable] Triggering background refetch...')
     await refetch()
-
-    console.log('%c✅ Products cache invalidated and refetched', 'color: #10b981; font-weight: 600;')
-  }, [queryClient, refetch, planIds, onPlanChanged])
+  }, [debug, queryClient, refetch, planIds, onPlanChanged])
 
   // Loading state
   if (isLoading) {
