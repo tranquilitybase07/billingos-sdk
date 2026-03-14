@@ -87,6 +87,12 @@ export interface CheckoutModalProps {
    * Debug mode for development
    */
   debug?: boolean
+
+  /**
+   * Enable Stripe Adaptive Pricing — lets customers pay in their local currency (~150 countries).
+   * Defaults to true.
+   */
+  adaptivePricing?: boolean
 }
 
 type CheckoutState = 'loading' | 'ready' | 'processing' | 'success' | 'error'
@@ -105,7 +111,8 @@ export function CheckoutModal({
   onSuccess,
   onError,
   onCancel,
-  debug = false
+  debug = false,
+  adaptivePricing = true,
 }: CheckoutModalProps) {
   const { appUrl, debug: contextDebug } = useBillingOS()
   const isDebug = debug || contextDebug
@@ -115,9 +122,6 @@ export function CheckoutModal({
   const [iframeHeight, setIframeHeight] = useState(600)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  useEffect(() => {
-    if (isDebug) console.log('[BillingOS] CheckoutModal mounted')
-  }, [])
 
   // Create checkout session when modal opens
   const { sessionId, sessionUrl, loading, error: sessionError } = useCheckoutSession({
@@ -126,13 +130,12 @@ export function CheckoutModal({
     customer,
     couponCode,
     metadata,
-    existingSubscriptionId
+    existingSubscriptionId,
+    adaptivePricing,
   })
 
   // Handle iframe messaging
   const handleIframeMessage = useCallback((message: IframeMessage) => {
-    if (isDebug) console.log('[BillingOS] Iframe message:', message.type, message)
-
     switch (message.type) {
       case 'CHECKOUT_READY':
         setState('ready')
@@ -219,17 +222,10 @@ export function CheckoutModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "sm:max-w-[500px] p-0 overflow-hidden",
+          "max-w-[800px] w-full p-0 overflow-hidden",
           "max-h-[90vh] relative"
         )}
       >
-        {/* Iframe Badge */}
-        <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium px-2 py-1 rounded-full shadow-lg">
-          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          <span>Secure Iframe</span>
-        </div>
         {showError ? (
           <div className="p-8 text-center">
             <div className="text-red-600 mb-2">
@@ -260,11 +256,7 @@ export function CheckoutModal({
           <>
             {showSpinner && (
               <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
-                <div className="flex flex-col items-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                  <p className="mt-4 text-gray-600 font-medium">Loading secure checkout...</p>
-                  <p className="mt-2 text-xs text-gray-500">Iframe-based • PCI Compliant</p>
-                </div>
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
               </div>
             )}
 
@@ -277,21 +269,7 @@ export function CheckoutModal({
                   "transition-opacity duration-300",
                   showSpinner ? "opacity-0" : "opacity-100"
                 )}
-                onLoad={() => {
-                  console.log(
-                    '%c✅ Iframe loaded successfully',
-                    'color: #10b981; font-weight: 600;',
-                    `\nURL: ${sessionUrl}`
-                  )
-                  if (debug) {
-                    console.log('[CheckoutModal] Full iframe details:', {
-                      sessionUrl,
-                      sessionId,
-                      state,
-                      height: iframeHeight
-                    })
-                  }
-                }}
+                onLoad={() => {}}
               />
             )}
 

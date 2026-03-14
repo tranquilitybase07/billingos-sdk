@@ -7,6 +7,7 @@ import {
   ServerError,
   NetworkError,
 } from './errors'
+import { resolveApiUrlFromToken } from '../utils/urls'
 import type {
   Customer,
   CreateCustomerInput,
@@ -104,17 +105,17 @@ export class BillingOSClient {
     this.sessionToken = sessionToken
     this.timeout = options.timeout || 30000
 
-    // Resolve the API base URL. Provider always passes options.baseUrl (resolved via resolveApiUrl).
-    // When used directly (outside Provider), falls back to env var then production default.
+    // Resolve the API base URL.
+    // Priority: explicit baseUrl > env var override > auto-detect from token prefix
     if (options.baseUrl) {
       this.baseUrl = options.baseUrl.replace(/\/$/, '')
-    } else if (options.environment === 'sandbox') {
-      this.baseUrl = 'https://sandbox.billingos.dev/api'
     } else {
       const envUrl = typeof process !== 'undefined'
         ? process.env?.NEXT_PUBLIC_BILLINGOS_API_URL
         : undefined
-      this.baseUrl = (envUrl || 'https://api.billingos.dev').replace(/\/$/, '')
+      this.baseUrl = envUrl
+        ? envUrl.replace(/\/$/, '')
+        : resolveApiUrlFromToken(sessionToken)
     }
 
     // Setup default headers

@@ -1,6 +1,6 @@
 {
   "name": "@billingos/sdk",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "description": "React SDK for BillingOS - billing, subscriptions, and payments (with iframe checkout)",
   "type": "module",
   "main": "./dist/index.js",
@@ -18,7 +18,11 @@
     "README.md",
     "LICENSE"
   ],
-  "sideEffects": ["./src/styles/inject.ts", "./dist/index.mjs", "./dist/index.js"],
+  "sideEffects": [
+    "./src/styles/inject.ts",
+    "./dist/index.mjs",
+    "./dist/index.js"
+  ],
   "scripts": {
     "build": "tsup",
     "prepare": "pnpm build && pnpm --filter @billingos/node build",
@@ -26,7 +30,10 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "pnpm prepare && changeset publish"
+    "release": "pnpm prepare && changeset publish",
+    "dev": "tsup --watch",
+    "dev:all": "pnpm dev & pnpm --filter @billingos/node dev",
+    "dev:playground": "pnpm --filter @billingos/playground dev"
   },
   "keywords": [
     "billing",
@@ -46,21 +53,23 @@
   },
   "packageManager": "pnpm@10.26.2",
   "peerDependencies": {
-    "react": "^18.0.0 || ^19.0.0",
-    "react-dom": "^18.0.0 || ^19.0.0",
     "@stripe/react-stripe-js": "^4.0.2",
     "@stripe/stripe-js": "^7.1.0",
-    "@tanstack/react-query": "^5.90.0"
+    "@tanstack/react-query": "^5.90.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "lucide-react": "^0.577.0",
     "react-shadow-scope": "^2.0.3",
     "tailwind-merge": "^2.6.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.30.0",
     "@stripe/react-stripe-js": "^4.0.2",
     "@stripe/stripe-js": "^7.1.0",
     "@tailwindcss/postcss": "^4.1.18",

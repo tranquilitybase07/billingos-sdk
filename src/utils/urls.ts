@@ -1,20 +1,41 @@
 /**
  * BillingOS production URLs.
  * These are the defaults — SDK users don't need to configure anything.
- * Override via env vars or props only for self-hosting or local development.
+ * The SDK auto-detects the correct API URL from the session token prefix.
  */
 export const BILLINGOS_API_URL = 'https://api.billingos.dev'
+export const BILLINGOS_SANDBOX_API_URL = 'https://sandbox-api.billingos.dev'
 export const BILLINGOS_APP_URL = 'https://app.billingos.dev'
 
 /**
- * Resolves the BillingOS API base URL.
- *
- * Priority:
- * 1. Explicit prop passed to BillingOSProvider (`apiUrl`)
- * 2. NEXT_PUBLIC_BILLINGOS_API_URL env var (for local dev / self-hosting)
- * 3. Production default — https://api.billingos.dev
- *
- * Most users never need to set this.
+ * Detect environment from session token prefix.
+ */
+export function detectEnvironmentFromToken(token: string): 'test' | 'live' {
+  if (token.startsWith('bos_session_test_')) return 'test'
+  return 'live' // bos_session_live_ or legacy bos_session_ → production
+}
+
+/**
+ * Resolve the BillingOS API URL from a session token prefix.
+ * This is the primary resolution method — no configuration needed.
+ */
+export function resolveApiUrlFromToken(token: string): string {
+  return detectEnvironmentFromToken(token) === 'test'
+    ? BILLINGOS_SANDBOX_API_URL
+    : BILLINGOS_API_URL
+}
+
+/**
+ * Resolve the BillingOS app URL.
+ * The app URL is the same for both test and live environments.
+ */
+export function resolveAppUrlFromToken(_token: string): string {
+  return BILLINGOS_APP_URL
+}
+
+/**
+ * @deprecated Use resolveApiUrlFromToken() instead. The SDK now auto-detects
+ * the API URL from the session token prefix (bos_session_test_ / bos_session_live_).
  */
 export function resolveApiUrl(propUrl?: string): string {
   const url =
@@ -24,19 +45,19 @@ export function resolveApiUrl(propUrl?: string): string {
       : undefined) ||
     BILLINGOS_API_URL
 
-  // Strip trailing slash for consistent URL construction
+  if (propUrl) {
+    console.warn(
+      '[BillingOS] The apiUrl prop is deprecated. ' +
+      'The SDK now auto-detects the environment from the session token prefix.'
+    )
+  }
+
   return url.replace(/\/$/, '')
 }
 
 /**
- * Resolves the BillingOS app URL (used for iframe checkout and portal embeds).
- *
- * Priority:
- * 1. Explicit prop passed to BillingOSProvider (`appUrl`)
- * 2. NEXT_PUBLIC_BILLINGOS_APP_URL env var (for local dev / self-hosting)
- * 3. Production default — https://app.billingos.dev
- *
- * Most users never need to set this.
+ * @deprecated Use resolveAppUrlFromToken() instead. The app URL is now
+ * always https://app.billingos.dev for both test and live environments.
  */
 export function resolveAppUrl(propUrl?: string): string {
   const url =
@@ -45,6 +66,13 @@ export function resolveAppUrl(propUrl?: string): string {
       ? process.env?.NEXT_PUBLIC_BILLINGOS_APP_URL
       : undefined) ||
     BILLINGOS_APP_URL
+
+  if (propUrl) {
+    console.warn(
+      '[BillingOS] The appUrl prop is deprecated. ' +
+      'The app URL is now always https://app.billingos.dev.'
+    )
+  }
 
   return url.replace(/\/$/, '')
 }

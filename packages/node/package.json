@@ -1,6 +1,6 @@
 {
   "name": "@billingos/node",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Node.js SDK for BillingOS - server-side billing, subscriptions, and session tokens",
   "type": "module",
   "main": "./dist/index.cjs",

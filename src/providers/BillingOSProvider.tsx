@@ -3,7 +3,7 @@ import React, { createContext, useContext, useMemo } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BillingOSClient, BillingOSClientOptions } from '../client'
 import { useSessionToken, UseSessionTokenOptions } from '../hooks/useSessionToken'
-import { resolveApiUrl, resolveAppUrl } from '../utils/urls'
+import { resolveApiUrl, resolveAppUrl, resolveApiUrlFromToken, BILLINGOS_APP_URL } from '../utils/urls'
 
 /**
  * Context value provided by BillingOSProvider
@@ -23,14 +23,14 @@ const BillingOSContext = createContext<BillingOSContextValue | undefined>(undefi
 
 export interface BillingOSProviderProps {
   /**
-   * Base URL for the BillingOS API (e.g. https://api.billingos.dev or http://localhost:3001).
-   * Falls back to NEXT_PUBLIC_BILLINGOS_API_URL env var.
+   * @deprecated The SDK now auto-detects the API URL from the session token prefix.
+   * Only use this for internal development to override the auto-detected URL.
    */
   apiUrl?: string
 
   /**
-   * Base URL for the BillingOS app (used for iframe checkout/portal embeds).
-   * Falls back to NEXT_PUBLIC_BILLINGOS_APP_URL env var, then window.location.origin.
+   * @deprecated The app URL is now always https://app.billingos.dev.
+   * Only use this for internal development to override the default.
    */
   appUrl?: string
 
@@ -113,15 +113,28 @@ export function BillingOSProvider({
   debug = false,
   children,
 }: BillingOSProviderProps) {
-  // Resolve URLs once (throws with actionable message if apiUrl is missing)
-  const apiUrl = useMemo(() => resolveApiUrl(apiUrlProp), [apiUrlProp])
-  const appUrl = useMemo(() => resolveAppUrl(appUrlProp), [appUrlProp])
+  // Resolve URLs: prop/env var overrides take priority, otherwise auto-detect from token prefix
+  const hasApiUrlOverride = !!(apiUrlProp || (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BILLINGOS_API_URL))
+  const hasAppUrlOverride = !!(appUrlProp || (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BILLINGOS_APP_URL))
 
   const { token, isLoading, error } = useSessionToken({
     token: manualSessionToken,
     tokenUrl: sessionTokenUrl,
     ...sessionTokenOptions,
   })
+
+  // API URL: use override if provided, otherwise auto-detect from token prefix
+  const apiUrl = useMemo(() => {
+    if (hasApiUrlOverride) return resolveApiUrl(apiUrlProp)
+    if (token) return resolveApiUrlFromToken(token)
+    return resolveApiUrl(apiUrlProp) // fallback to default while token is loading
+  }, [apiUrlProp, hasApiUrlOverride, token])
+
+  // App URL: use override if provided, otherwise always app.billingos.dev
+  const appUrl = useMemo(() => {
+    if (hasAppUrlOverride) return resolveAppUrl(appUrlProp)
+    return BILLINGOS_APP_URL
+  }, [appUrlProp, hasAppUrlOverride])
 
   const qc = useMemo(
     () => queryClient || createDefaultQueryClient(),
@@ -131,9 +144,9 @@ export function BillingOSProvider({
   const client = useMemo(
     () =>
       token
-        ? new BillingOSClient(token, { baseUrl: apiUrl, ...options })
+        ? new BillingOSClient(token, { ...(hasApiUrlOverride ? { baseUrl: apiUrl } : {}), ...options })
         : null,
-    [token, apiUrl, options]
+    [token, apiUrl, hasApiUrlOverride, options]
   )
 
   const contextValue = useMemo<BillingOSContextValue>(

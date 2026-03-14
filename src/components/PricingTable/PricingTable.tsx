@@ -5,20 +5,13 @@ import { Skeleton } from '../ui/skeleton'
 import { Alert, AlertDescription } from '../ui/alert'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../ui/table'
+import { Switch } from '../ui/switch'
 import { cn } from '../../utils/cn'
 import { useProducts } from './hooks/useProducts'
+import { PricingCard } from './PricingCard'
 import { PaymentBottomSheet } from '../PaymentBottomSheet'
 import { CheckoutModal } from '../CheckoutModal'
 import { useBillingOS } from '../../providers/BillingOSProvider'
-import type { PricingProduct, PricingPrice } from '../../client/types'
 
 export interface PricingTableProps {
   planIds?: string[]
@@ -28,20 +21,27 @@ export interface PricingTableProps {
   theme?: 'light' | 'dark'
   title?: string
   description?: string
-  /** Use the new iframe-based checkout modal instead of bottom sheet */
+  /** Use the iframe-based checkout modal instead of bottom sheet */
   useCheckoutModal?: boolean
-  /** Callback when plan is changed (for upgrade/downgrade flows) */
+  /** Callback when plan is changed */
   onPlanChanged?: (subscription: any) => void
-  /** Customer information to prefill in checkout (overrides context) */
-  customer?: {
-    email?: string
-    name?: string
-  }
+  /** Customer info to prefill in checkout (overrides context) */
+  customer?: { email?: string; name?: string }
+  /** Footer note below the cards. Pass null to hide it. */
+  footerText?: string | null
+  /** Render only the cards — no section wrapper, header, or footer text */
+  compact?: boolean
 }
 
-interface FeatureRow {
-  name: string
-  values: (string | boolean | number | null)[]
+/** Collect all unique features across all products (by feature.name) */
+function getAllFeatures(products: Array<{ features: Array<{ name: string; title: string; type: string }> }>) {
+  const seen = new Map<string, { name: string; title: string; type: string }>()
+  products.forEach((product) => {
+    product.features.forEach((f) => {
+      if (!seen.has(f.name)) seen.set(f.name, { name: f.name, title: f.title, type: f.type })
+    })
+  })
+  return Array.from(seen.values())
 }
 
 export function PricingTable({
@@ -50,107 +50,52 @@ export function PricingTable({
   defaultInterval = 'month',
   onSelectPlan,
   theme,
-  title = 'Choose Your Plan',
-  description,
+  title = 'Simple, transparent pricing',
+  description = 'Choose the perfect plan for your needs. No hidden fees, cancel anytime.',
   useCheckoutModal = false,
   onPlanChanged,
   customer: customerProp,
+  footerText = 'All plans include SSL security and 99.9% uptime SLA',
+  compact = false,
 }: PricingTableProps) {
-  const [selectedInterval, setSelectedInterval] = React.useState<'month' | 'year'>(defaultInterval)
+  const [isYearly, setIsYearly] = React.useState(defaultInterval === 'year')
   const [selectedPriceId, setSelectedPriceId] = React.useState<string | null>(null)
   const [isPaymentOpen, setIsPaymentOpen] = React.useState(false)
-
-  // Get customer data and debug flag from context
-  const { customerEmail, customerName, debug } = useBillingOS()
-
-  // Use prop customer data if provided, otherwise fall back to context
-  const finalCustomerEmail = customerProp?.email || customerEmail
-  const finalCustomerName = customerProp?.name || customerName
-
-  // Get query client for cache invalidation
-  const queryClient = useQueryClient()
-
-  // State for success notification
   const [showSuccessMessage, setShowSuccessMessage] = React.useState(false)
 
-  React.useEffect(() => {
-    if (debug) {
-      console.log('[BillingOS] PricingTable customer data:', {
-        fromProp: customerProp,
-        fromContext: { customerEmail, customerName },
-        final: { email: finalCustomerEmail, name: finalCustomerName },
-      })
-    }
-  }, [debug, customerProp, customerEmail, customerName, finalCustomerEmail, finalCustomerName])
+  const { customerEmail, customerName, debug } = useBillingOS()
+  const finalCustomerEmail = customerProp?.email || customerEmail
+  const finalCustomerName = customerProp?.name || customerName
+  const queryClient = useQueryClient()
 
   const { data, isLoading, error, refetch } = useProducts({ planIds })
+  const currentSubscription = data?.currentSubscription ?? null
 
-  const products = data?.products || []
-  const currentSubscription = data?.currentSubscription || null
-
-  // Check if any product has yearly pricing
-  const hasYearlyPricing = products.some((p) =>
-    p.prices.some((price) => price.interval === 'year')
-  )
-
-  // Extract all unique features across all products
-  const getAllFeatures = React.useMemo((): FeatureRow[] => {
-    const featureMap = new Map<string, FeatureRow>()
-
-    // First, collect all unique features using feature.id as key
-    products.forEach((product) => {
-      product.features.forEach((feature) => {
-        if (!featureMap.has(feature.id)) {
-          featureMap.set(feature.id, {
-            name: feature.title,
-            values: Array(products.length).fill(null),
-          })
-        }
-      })
+  // Sort by monthly price ascending (free first)
+  const products = React.useMemo(() => {
+    return [...(data?.products ?? [])].sort((a, b) => {
+      const aAmt = a.prices.find((p) => p.interval === 'month')?.amount ?? 0
+      const bAmt = b.prices.find((p) => p.interval === 'month')?.amount ?? 0
+      return aAmt - bAmt
     })
+  }, [data])
 
-    // Populate feature values for each product
-    const featureRows = Array.from(featureMap.entries())
-    featureRows.forEach(([featureId, featureRow]) => {
-      products.forEach((product, productIndex) => {
-        const feature = product.features.find((f) => f.id === featureId)
-        if (feature) {
-          // Determine feature value based on type
-          if (feature.type === 'boolean_flag') {
-            featureRow.values[productIndex] = true
-          } else if (feature.type === 'usage_quota' || feature.type === 'numeric_limit') {
-            const limit = feature.properties?.limit
-            if (limit === -1) {
-              featureRow.values[productIndex] = 'Unlimited'
-            } else if (typeof limit === 'number') {
-              featureRow.values[productIndex] = limit
-            } else {
-              featureRow.values[productIndex] = true
-            }
-          }
-        }
-      })
-    })
+  const allFeatures = React.useMemo(() => getAllFeatures(products), [products])
 
-    return featureRows.map(([, row]) => row)
-  }, [products])
+  const hasYearlyPricing = products.some((p) => p.prices.some((pr) => pr.interval === 'year'))
 
-  // Format price for display
-  const formatPrice = (price: PricingPrice) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: price.currency.toUpperCase(),
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price.amount / 100)
-  }
+  const selectedInterval = isYearly ? 'year' : 'month'
 
-  // Get price for selected interval
-  const getPriceForInterval = (product: PricingProduct): PricingPrice | null => {
-    return product.prices.find((p) => p.interval === selectedInterval) || product.prices[0] || null
-  }
+  // Current plan's price amount for upgrade/downgrade comparison
+  const currentPlanAmount = React.useMemo(() => {
+    const currentProduct = products.find((p) => p.isCurrentPlan)
+    return (
+      currentProduct?.prices.find((p) => p.interval === selectedInterval)?.amount ??
+      currentProduct?.prices[0]?.amount ??
+      0
+    )
+  }, [products, selectedInterval])
 
-  // Handle plan selection
   const handleSelectPlan = (priceId: string) => {
     if (onSelectPlan) {
       onSelectPlan(priceId)
@@ -160,383 +105,199 @@ export function PricingTable({
     }
   }
 
-  // Handle payment success with real-time update
-  const handlePaymentSuccess = React.useCallback(async (subscription?: any) => {
-    if (debug) console.log('[BillingOS] Payment success:', subscription)
+  const handlePaymentSuccess = React.useCallback(
+    async (subscription?: any) => {
+      if (debug) console.log('[BillingOS] Payment success:', subscription)
+      setIsPaymentOpen(false)
+      setSelectedPriceId(null)
+      setShowSuccessMessage(true)
+      setTimeout(() => setShowSuccessMessage(false), 5000)
+      if (onPlanChanged) onPlanChanged(subscription)
+      await queryClient.invalidateQueries({ queryKey: ['products'], refetchType: 'all' })
+      if (subscription) {
+        queryClient.setQueryData(['products', planIds], (oldData: any) => {
+          if (!oldData) return oldData
+          return {
+            ...oldData,
+            currentSubscription: subscription,
+            products: oldData.products?.map((p: any) => ({
+              ...p,
+              isCurrentPlan: p.prices?.some((pr: any) => pr.id === subscription.priceId) ?? false,
+            })),
+          }
+        })
+      }
+      await refetch()
+    },
+    [debug, queryClient, refetch, planIds, onPlanChanged]
+  )
 
-    setIsPaymentOpen(false)
-    setSelectedPriceId(null)
-    setShowSuccessMessage(true)
-    setTimeout(() => setShowSuccessMessage(false), 5000)
-
-    if (onPlanChanged) {
-      onPlanChanged(subscription)
-    }
-
-    // Force invalidate the products query to ensure immediate refetch of subscription status
-    await queryClient.invalidateQueries({
-      queryKey: ['products'],
-      refetchType: 'all'
-    })
-
-    if (subscription) {
-      queryClient.setQueryData(['products', planIds], (oldData: any) => {
-        if (!oldData) return oldData
-        return {
-          ...oldData,
-          currentSubscription: subscription,
-          products: oldData.products?.map((product: any) => ({
-            ...product,
-            isCurrentPlan: product.prices?.some((price: any) =>
-              price.id === subscription.priceId
-            ) || false
-          }))
-        }
-      })
-    }
-
-    await refetch()
-  }, [debug, queryClient, refetch, planIds, onPlanChanged])
-
-  // Loading state
+  // ── Loading ──────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className={cn('w-full', theme === 'dark' && 'dark')}>
-        {title && (
-          <div className="text-center mb-8">
-            <Skeleton className="h-10 w-64 mx-auto mb-2" />
-            {description && <Skeleton className="h-5 w-96 mx-auto" />}
+      <section className={cn('py-20 px-4 sm:px-6 lg:px-8 bg-slate-50 min-h-screen', theme === 'dark' && 'dark')}>
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <Skeleton className="h-12 w-72 mx-auto mb-4" />
+            <Skeleton className="h-5 w-96 mx-auto" />
           </div>
-        )}
-        <Skeleton className="h-[600px] w-full" />
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+            <Skeleton className="h-[480px] rounded-2xl" />
+            <Skeleton className="h-[480px] rounded-2xl" />
+          </div>
+        </div>
+      </section>
     )
   }
 
-  // Error state
+  // ── Error ────────────────────────────────────────────────────────────────
   if (error) {
     return (
-      <div className={cn('w-full max-w-md mx-auto', theme === 'dark' && 'dark')}>
-        <Alert variant="destructive">
-          <AlertDescription>
-            {error.message || 'Failed to load pricing plans'}
-          </AlertDescription>
-        </Alert>
-        <div className="mt-4 flex justify-center">
-          <Button onClick={() => refetch()}>Try Again</Button>
+      <section className={cn('py-20 px-4', theme === 'dark' && 'dark')}>
+        <div className="max-w-md mx-auto">
+          <Alert variant="destructive">
+            <AlertDescription>{error.message || 'Failed to load pricing plans'}</AlertDescription>
+          </Alert>
+          <div className="mt-4 flex justify-center">
+            <Button onClick={() => refetch()}>Try Again</Button>
+          </div>
         </div>
-      </div>
+      </section>
     )
   }
 
-  // Empty state
+  // ── Empty ────────────────────────────────────────────────────────────────
   if (products.length === 0) {
     return (
-      <div className={cn('w-full text-center py-12', theme === 'dark' && 'dark')}>
+      <section className={cn('py-20 px-4 text-center', theme === 'dark' && 'dark')}>
         <p className="text-muted-foreground">No pricing plans available</p>
+      </section>
+    )
+  }
+
+  const paymentComponent = !onSelectPlan && selectedPriceId ? (
+    <>
+      {useCheckoutModal ? (
+        <CheckoutModal
+          open={isPaymentOpen}
+          onOpenChange={(open) => { if (!open) { setIsPaymentOpen(false); setSelectedPriceId(null) } }}
+          priceId={selectedPriceId}
+          customer={{ email: finalCustomerEmail, name: finalCustomerName }}
+          onSuccess={handlePaymentSuccess}
+          existingSubscriptionId={currentSubscription?.id}
+          theme={theme}
+        />
+      ) : (
+        <PaymentBottomSheet
+          priceId={selectedPriceId}
+          isOpen={isPaymentOpen}
+          onClose={() => { setIsPaymentOpen(false); setSelectedPriceId(null) }}
+          onSuccess={handlePaymentSuccess}
+          existingSubscriptionId={currentSubscription?.id}
+          theme={theme}
+        />
+      )}
+    </>
+  ) : null
+
+  const cardsGrid = (
+    <div
+      className={cn(
+        'grid gap-8 items-start',
+        products.length === 1 && 'grid-cols-1 max-w-sm mx-auto',
+        products.length === 2 && 'grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto',
+        products.length >= 3 && 'grid-cols-1 md:grid-cols-3'
+      )}
+    >
+      {products.map((product) => (
+        <PricingCard
+          key={product.id}
+          product={product}
+          allFeatures={allFeatures}
+          isYearly={isYearly}
+          currentSubscription={currentSubscription}
+          currentPlanAmount={currentPlanAmount}
+          onSelectPlan={handleSelectPlan}
+          theme={theme}
+        />
+      ))}
+    </div>
+  )
+
+  if (compact) {
+    return (
+      <div className={cn(theme === 'dark' && 'dark')}>
+        {cardsGrid}
+        {paymentComponent}
       </div>
     )
   }
 
   return (
-    <div className={cn('w-full', theme === 'dark' && 'dark')}>
-      {/* Success Notification */}
-      {showSuccessMessage && (
-        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg animate-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center space-x-2">
-            <svg
-              className="w-5 h-5 text-green-600 dark:text-green-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
+    <section
+      className={cn(
+        'py-20 px-4 sm:px-6 lg:px-8 bg-slate-50 min-h-screen',
+        theme === 'dark' && 'dark'
+      )}
+    >
+      <div className="max-w-5xl mx-auto">
+        {/* Success notification */}
+        {showSuccessMessage && (
+          <div className="mb-8 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+            <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <p className="text-green-800 dark:text-green-200 font-medium">
+            <p className="text-green-800 font-medium text-sm">
               Payment successful! Your subscription has been updated.
             </p>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Header */}
-      {(title || description) && (
-        <div className="text-center mb-8">
+        {/* Header */}
+        <div className="text-center mb-16">
           {title && (
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">{title}</h2>
+            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight mb-4">
+              {title}
+            </h1>
           )}
           {description && (
-            <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
-              {description}
-            </p>
-          )}
-          {useCheckoutModal && (
-            <div className="inline-flex items-center gap-2 mt-4 px-3 py-1 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 rounded-full text-sm font-medium">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>Using Secure Iframe Checkout</span>
-            </div>
+            <p className="text-lg text-slate-500 max-w-2xl mx-auto">{description}</p>
           )}
         </div>
-      )}
 
-      {/* Interval Toggle */}
-      {showIntervalToggle && hasYearlyPricing && (
-        <div className="flex justify-center mb-8">
-          <div className="inline-flex items-center rounded-lg bg-muted p-1">
-            <button
-              onClick={() => setSelectedInterval('month')}
-              className={cn(
-                'px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                selectedInterval === 'month'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
+        {/* Billing toggle */}
+        {showIntervalToggle && hasYearlyPricing && (
+          <div className="flex items-center justify-center gap-4 mb-16">
+            <span className={cn('text-sm font-medium transition-colors', !isYearly ? 'text-slate-900' : 'text-slate-400')}>
               Monthly
-            </button>
-            <button
-              onClick={() => setSelectedInterval('year')}
-              className={cn(
-                'px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2',
-                selectedInterval === 'year'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
+            </span>
+            <Switch
+              checked={isYearly}
+              onCheckedChange={setIsYearly}
+              aria-label="Billing frequency"
+            />
+            <span className={cn('text-sm font-medium transition-colors', isYearly ? 'text-slate-900' : 'text-slate-400')}>
               Yearly
-              <Badge variant="secondary" className="text-xs">
-                Save
+            </span>
+            {isYearly && (
+              <Badge className="bg-emerald-100 text-emerald-700 border-0 ml-2">
+                Save up to 40%
               </Badge>
-            </button>
+            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Pricing Table */}
-      <div className="rounded-lg border bg-card overflow-hidden">
-        <Table>
-          {/* Header Row: Plan Names & Prices */}
-          <TableHeader>
-            <TableRow className="hover:bg-transparent border-b">
-              <TableHead className="w-[200px]" />
-              {products.map((product) => {
-                const price = getPriceForInterval(product)
-                const isHighlighted = product.highlighted
-                const isCurrentPlan = product.isCurrentPlan
+        {cardsGrid}
 
-                return (
-                  <TableHead
-                    key={product.id}
-                    className={cn(
-                      'text-center relative',
-                      isHighlighted && 'bg-foreground text-background'
-                    )}
-                  >
-                    <div className="py-8">
-                      {/* Badges */}
-                      {(isHighlighted || isCurrentPlan) && (
-                        <div className="flex justify-center gap-2 mb-3">
-                          {isCurrentPlan && (
-                            <Badge className="bg-primary text-primary-foreground text-xs">
-                              Current Plan
-                            </Badge>
-                          )}
-                          {isHighlighted && !isCurrentPlan && (
-                            <Badge
-                              variant="secondary"
-                              className={cn(
-                                "text-xs",
-                                isHighlighted && "bg-background text-foreground"
-                              )}
-                            >
-                              Popular
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Plan Name */}
-                      <div className={cn(
-                        "font-bold text-xl mb-3",
-                        isHighlighted ? "text-background" : "text-foreground"
-                      )}>
-                        {product.name}
-                      </div>
-
-                      {/* Price */}
-                      {price && (
-                        <>
-                          <div className={cn(
-                            "text-5xl font-bold mb-2",
-                            isHighlighted ? "text-background" : "text-foreground"
-                          )}>
-                            {formatPrice(price)}
-                          </div>
-                          <div className={cn(
-                            "text-sm mt-1",
-                            isHighlighted ? "text-background/70" : "text-muted-foreground"
-                          )}>
-                            Per {selectedInterval === 'year' ? 'year' : 'month'}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </TableHead>
-                )
-              })}
-            </TableRow>
-          </TableHeader>
-
-          {/* Feature Rows */}
-          <TableBody>
-            {getAllFeatures.map((featureRow, index) => (
-              <TableRow key={index}>
-                <TableCell className="font-medium text-foreground py-4">
-                  {featureRow.name}
-                </TableCell>
-                {featureRow.values.map((value, productIndex) => {
-                  const isHighlighted = products[productIndex]?.highlighted
-
-                  return (
-                    <TableCell
-                      key={productIndex}
-                      className={cn(
-                        'text-center py-4',
-                        isHighlighted && 'bg-foreground/5'
-                      )}
-                    >
-                      {value === null || value === false ? (
-                        <span className="text-muted-foreground">-</span>
-                      ) : value === true ? (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="inline-block text-foreground"
-                        >
-                          <circle cx="12" cy="12" r="10" />
-                          <polyline points="9 12 11 14 15 10" />
-                        </svg>
-                      ) : (
-                        <span className="text-foreground font-medium">{value}</span>
-                      )}
-                    </TableCell>
-                  )
-                })}
-              </TableRow>
-            ))}
-
-            {/* CTA Buttons Row */}
-            <TableRow className="hover:bg-transparent border-t">
-              <TableCell className="font-medium text-foreground py-6">
-                Server speed
-              </TableCell>
-              {products.map((product) => {
-                const price = getPriceForInterval(product)
-                const isHighlighted = product.highlighted
-                const isCurrentPlan = product.isCurrentPlan
-
-                // Smart button text based on subscription state
-                const hasSubscription = currentSubscription !== null
-                let buttonText = 'Get Started'
-
-                if (isCurrentPlan) {
-                  buttonText = 'Current Plan'
-                } else if (hasSubscription && price && currentSubscription) {
-                  // Get current price for comparison
-                  const currentPrice = products.find(p => p.isCurrentPlan)
-                  const currentPriceAmount = currentPrice
-                    ? getPriceForInterval(currentPrice)?.amount || 0
-                    : 0
-
-                  // Compare prices to determine upgrade/downgrade
-                  if (price.amount > currentPriceAmount) {
-                    buttonText = 'Upgrade'
-                  } else if (price.amount < currentPriceAmount) {
-                    buttonText = 'Downgrade'
-                  } else {
-                    buttonText = 'Switch Plan'
-                  }
-                }
-
-                return (
-                  <TableCell
-                    key={product.id}
-                    className={cn(
-                      'text-center py-6',
-                      isHighlighted && 'bg-foreground/5'
-                    )}
-                  >
-                    <Button
-                      onClick={() => price && handleSelectPlan(price.id)}
-                      disabled={isCurrentPlan || !price}
-                      variant={isHighlighted && !isCurrentPlan ? 'default' : 'outline'}
-                      className={cn(
-                        "w-full max-w-[200px]",
-                        isHighlighted && !isCurrentPlan && "bg-foreground text-background hover:bg-foreground/90"
-                      )}
-                    >
-                      {buttonText}
-                    </Button>
-                  </TableCell>
-                )
-              })}
-            </TableRow>
-          </TableBody>
-        </Table>
+        {/* Footer */}
+        {footerText && (
+          <div className="text-center mt-16">
+            <p className="text-sm text-slate-400">{footerText}</p>
+          </div>
+        )}
       </div>
 
-      {/* Payment Component - Either Modal or Bottom Sheet */}
-      {!onSelectPlan && selectedPriceId && (
-        <>
-          {useCheckoutModal ? (
-            <CheckoutModal
-              open={isPaymentOpen}
-              onOpenChange={(open) => {
-                if (!open) {
-                  setIsPaymentOpen(false)
-                  setSelectedPriceId(null)
-                }
-              }}
-              priceId={selectedPriceId}
-              customer={{
-                email: finalCustomerEmail,
-                name: finalCustomerName,
-              }}
-              onSuccess={(subscription) => {
-                handlePaymentSuccess(subscription)
-              }}
-              existingSubscriptionId={currentSubscription?.id}
-              theme={theme}
-            />
-          ) : (
-            <PaymentBottomSheet
-              priceId={selectedPriceId}
-              isOpen={isPaymentOpen}
-              onClose={() => {
-                setIsPaymentOpen(false)
-                setSelectedPriceId(null)
-              }}
-              onSuccess={handlePaymentSuccess}
-              existingSubscriptionId={currentSubscription?.id}
-              theme={theme}
-            />
-          )}
-        </>
-      )}
-    </div>
+      {paymentComponent}
+    </section>
   )
 }

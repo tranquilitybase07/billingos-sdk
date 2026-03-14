@@ -5,7 +5,13 @@
       "Bash(xargs ls:*)",
       "Bash(grep:*)",
       "Bash(pnpm add:*)",
-      "Bash(nvm use:*)"
+      "Bash(nvm use:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:tsup.egoist.dev)",
+      "WebFetch(domain:serko.dev)",
+      "Bash(pnpm list:*)",
+      "Bash(ls:*)"
     ]
   }
 }

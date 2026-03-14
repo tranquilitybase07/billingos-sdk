@@ -59,12 +59,15 @@ export function usePortalSession({
     }
   }
 
-  // Create session when enabled
+  // Create session when enabled AND client is ready.
+  // client starts as null while the session token is being fetched (sessionTokenUrl),
+  // so we depend on client to re-run when the token arrives.
   useEffect(() => {
-    if (enabled && !sessionId) {
+    if (enabled && client && !sessionId) {
       createSession()
     }
-  }, [enabled])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, client])
 
   // Cleanup session when component unmounts
   useEffect(() => {
