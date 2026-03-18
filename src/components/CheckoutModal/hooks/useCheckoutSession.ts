@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useBillingOS } from "../../../providers/BillingOSProvider";
+import type { AppearanceConfig } from "../../../types/appearance";
+import { serializeAppearanceToParams } from "../../../types/appearance";
 
 interface UseCheckoutSessionOptions {
   enabled: boolean;
@@ -14,6 +16,7 @@ interface UseCheckoutSessionOptions {
   metadata?: Record<string, string>;
   existingSubscriptionId?: string;
   adaptivePricing?: boolean;
+  appearance?: AppearanceConfig;
 }
 
 interface UseCheckoutSessionReturn {
@@ -32,6 +35,7 @@ export function useCheckoutSession({
   metadata,
   existingSubscriptionId,
   adaptivePricing = true,
+  appearance,
 }: UseCheckoutSessionOptions): UseCheckoutSessionReturn {
   const { client, appUrl, debug } = useBillingOS();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -74,7 +78,9 @@ export function useCheckoutSession({
         console.log("[BillingOS] Checkout session created:", session.id);
 
       // Generate iframe URL using appUrl from BillingOSProvider context
-      const iframeUrl = `${appUrl}/embed/checkout/${session.id}`;
+      const params = serializeAppearanceToParams(appearance);
+      const query = params.toString();
+      const iframeUrl = `${appUrl}/embed/checkout/${session.id}${query ? '?' + query : ''}`;
       setSessionUrl(iframeUrl);
 
       if (debug) console.log("[BillingOS] Iframe URL:", iframeUrl);

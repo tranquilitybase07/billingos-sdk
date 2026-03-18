@@ -18,6 +18,9 @@ export interface PricingTableProps {
   showIntervalToggle?: boolean
   defaultInterval?: 'month' | 'year'
   onSelectPlan?: (priceId: string) => void
+  /**
+   * @deprecated Use `appearance.theme` on `<BillingOSProvider>` instead.
+   */
   theme?: 'light' | 'dark'
   title?: string
   description?: string
@@ -49,7 +52,7 @@ export function PricingTable({
   showIntervalToggle = true,
   defaultInterval = 'month',
   onSelectPlan,
-  theme,
+  theme: themeProp,
   title = 'Simple, transparent pricing',
   description = 'Choose the perfect plan for your needs. No hidden fees, cancel anytime.',
   useCheckoutModal = false,
@@ -63,7 +66,10 @@ export function PricingTable({
   const [isPaymentOpen, setIsPaymentOpen] = React.useState(false)
   const [showSuccessMessage, setShowSuccessMessage] = React.useState(false)
 
-  const { customerEmail, customerName, debug } = useBillingOS()
+  const { customerEmail, customerName, appearance, debug } = useBillingOS()
+  // Legacy theme prop takes precedence for backward compat, then appearance.theme
+  const theme = themeProp ?? appearance?.theme
+  const isDark = theme === 'dark'
   const finalCustomerEmail = customerProp?.email || customerEmail
   const finalCustomerName = customerProp?.name || customerName
   const queryClient = useQueryClient()
@@ -135,7 +141,7 @@ export function PricingTable({
   // ── Loading ──────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <section className={cn('py-20 px-4 sm:px-6 lg:px-8 bg-slate-50 min-h-screen', theme === 'dark' && 'dark')}>
+      <section className={cn('py-20 px-4 sm:px-6 lg:px-8 min-h-screen', isDark && 'dark')} style={{ backgroundColor: 'var(--bos-bg, #f8fafc)' }}>
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <Skeleton className="h-12 w-72 mx-auto mb-4" />
@@ -153,7 +159,7 @@ export function PricingTable({
   // ── Error ────────────────────────────────────────────────────────────────
   if (error) {
     return (
-      <section className={cn('py-20 px-4', theme === 'dark' && 'dark')}>
+      <section className={cn('py-20 px-4', isDark && 'dark')}>
         <div className="max-w-md mx-auto">
           <Alert variant="destructive">
             <AlertDescription>{error.message || 'Failed to load pricing plans'}</AlertDescription>
@@ -169,7 +175,7 @@ export function PricingTable({
   // ── Empty ────────────────────────────────────────────────────────────────
   if (products.length === 0) {
     return (
-      <section className={cn('py-20 px-4 text-center', theme === 'dark' && 'dark')}>
+      <section className={cn('py-20 px-4 text-center', isDark && 'dark')}>
         <p className="text-muted-foreground">No pricing plans available</p>
       </section>
     )
@@ -185,7 +191,6 @@ export function PricingTable({
           customer={{ email: finalCustomerEmail, name: finalCustomerName }}
           onSuccess={handlePaymentSuccess}
           existingSubscriptionId={currentSubscription?.id}
-          theme={theme}
         />
       ) : (
         <PaymentBottomSheet
@@ -194,7 +199,6 @@ export function PricingTable({
           onClose={() => { setIsPaymentOpen(false); setSelectedPriceId(null) }}
           onSuccess={handlePaymentSuccess}
           existingSubscriptionId={currentSubscription?.id}
-          theme={theme}
         />
       )}
     </>
@@ -218,7 +222,6 @@ export function PricingTable({
           currentSubscription={currentSubscription}
           currentPlanAmount={currentPlanAmount}
           onSelectPlan={handleSelectPlan}
-          theme={theme}
         />
       ))}
     </div>
@@ -226,7 +229,7 @@ export function PricingTable({
 
   if (compact) {
     return (
-      <div className={cn(theme === 'dark' && 'dark')}>
+      <div className={cn(isDark && 'dark')}>
         {cardsGrid}
         {paymentComponent}
       </div>
@@ -236,9 +239,10 @@ export function PricingTable({
   return (
     <section
       className={cn(
-        'py-20 px-4 sm:px-6 lg:px-8 bg-slate-50 min-h-screen',
-        theme === 'dark' && 'dark'
+        'py-20 px-4 sm:px-6 lg:px-8 min-h-screen',
+        isDark && 'dark'
       )}
+      style={{ backgroundColor: 'var(--bos-bg, #f8fafc)', fontFamily: 'var(--bos-font, inherit)' }}
     >
       <div className="max-w-5xl mx-auto">
         {/* Success notification */}
@@ -256,7 +260,7 @@ export function PricingTable({
         {/* Header */}
         <div className="text-center mb-16">
           {title && (
-            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight mb-4">
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4" style={{ color: 'var(--bos-text, #0f172a)' }}>
               {title}
             </h1>
           )}

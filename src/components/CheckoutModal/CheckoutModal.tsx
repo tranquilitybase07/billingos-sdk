@@ -59,9 +59,14 @@ export interface CheckoutModalProps {
   metadata?: Record<string, string>
 
   /**
-   * Theme for the checkout modal
+   * @deprecated Use `appearance.theme` on `<BillingOSProvider>` instead.
    */
   theme?: 'light' | 'dark' | 'auto'
+
+  /**
+   * @deprecated Use `appearance.variables.colorPrimary` on `<BillingOSProvider>` instead.
+   */
+  accentColor?: string
 
   /**
    * Locale for the checkout (e.g., 'en', 'es', 'fr')
@@ -106,15 +111,20 @@ export function CheckoutModal({
   collectBillingAddress,
   existingSubscriptionId,
   metadata,
-  theme = 'light',
+  theme: themeProp,
   locale = 'en',
   onSuccess,
   onError,
   onCancel,
   debug = false,
   adaptivePricing = true,
+  accentColor: accentColorProp,
 }: CheckoutModalProps) {
-  const { appUrl, debug: contextDebug } = useBillingOS()
+  const { appUrl, appearance, debug: contextDebug } = useBillingOS()
+  // Resolve theme: prop > appearance > default 'light'
+  const theme = themeProp ?? appearance?.theme ?? 'light'
+  // Resolve accentColor: prop > appearance.variables.colorPrimary
+  const accentColor = accentColorProp ?? appearance?.variables?.colorPrimary
   const isDebug = debug || contextDebug
 
   const [state, setState] = useState<CheckoutState>('loading')
@@ -124,6 +134,15 @@ export function CheckoutModal({
 
 
   // Create checkout session when modal opens
+  // Merge legacy accentColor prop into appearance variables
+  const mergedAppearance = {
+    theme: theme as 'light' | 'dark' | 'auto',
+    variables: {
+      ...appearance?.variables,
+      ...(accentColor ? { colorPrimary: accentColor } : {}),
+    },
+  }
+
   const { sessionId, sessionUrl, loading, error: sessionError } = useCheckoutSession({
     enabled: open,
     priceId,
@@ -132,6 +151,7 @@ export function CheckoutModal({
     metadata,
     existingSubscriptionId,
     adaptivePricing,
+    appearance: mergedAppearance,
   })
 
   // Handle iframe messaging
@@ -189,9 +209,10 @@ export function CheckoutModal({
         type: 'INIT_CHECKOUT',
         sessionId,
         config: {
-          theme,
+          theme: theme as 'light' | 'dark' | 'auto',
           locale,
-          collectBillingAddress
+          collectBillingAddress,
+          variables: mergedAppearance.variables,
         }
       })
     }
@@ -223,11 +244,12 @@ export function CheckoutModal({
       <DialogContent
         className={cn(
           "max-w-[800px] w-full p-0 overflow-hidden",
-          "max-h-[90vh] relative"
+          "min-h-[600px] max-h-[90vh] relative",
+          "rounded-2xl border-0 shadow-none bg-transparent"
         )}
       >
         {showError ? (
-          <div className="p-8 text-center">
+          <div className={cn("p-8 text-center", theme === 'dark' ? 'bg-[#141415]' : 'bg-white')}>
             <div className="text-red-600 mb-2">
               <svg
                 className="w-12 h-12 mx-auto"
@@ -243,11 +265,14 @@ export function CheckoutModal({
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold mb-2">Payment Error</h3>
-            <p className="text-gray-600">{error.message}</p>
+            <h3 className={cn("text-lg font-semibold mb-2", theme === 'dark' ? 'text-gray-100' : '')}>Payment Error</h3>
+            <p className={theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>{error.message}</p>
             <button
               onClick={() => onOpenChange(false)}
-              className="mt-4 px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+              className={cn(
+                "mt-4 px-4 py-2 rounded-md",
+                theme === 'dark' ? 'bg-[#242426] text-gray-200 hover:bg-[#2e2e30]' : 'bg-gray-200 hover:bg-gray-300'
+              )}
             >
               Close
             </button>
@@ -255,8 +280,13 @@ export function CheckoutModal({
         ) : (
           <>
             {showSpinner && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+              <div className="absolute inset-0 flex items-center justify-center z-10">
+                <div className={cn(
+                  "animate-spin rounded-full h-10 w-10 border-[3px]",
+                  theme === 'dark'
+                    ? 'border-white/20 border-t-white'
+                    : 'border-black/10 border-t-black/60'
+                )}></div>
               </div>
             )}
 
@@ -269,15 +299,18 @@ export function CheckoutModal({
                   "transition-opacity duration-300",
                   showSpinner ? "opacity-0" : "opacity-100"
                 )}
-                onLoad={() => {}}
+                onLoad={() => { }}
               />
             )}
 
             {state === 'processing' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+              <div className={cn(
+                "absolute inset-0 flex items-center justify-center z-10",
+                theme === 'dark' ? 'bg-black/80' : 'bg-white/80'
+              )}>
                 <div className="flex flex-col items-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-                  <p className="mt-4 text-gray-600">Processing payment...</p>
+                  <p className={cn("mt-4", theme === 'dark' ? 'text-gray-300' : 'text-gray-600')}>Processing payment...</p>
                 </div>
               </div>
             )}

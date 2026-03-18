@@ -1,3 +1,5 @@
+import type { AppearanceVariables } from '../../../types/appearance'
+
 /**
  * Message types for parent-to-iframe communication
  */
@@ -8,6 +10,7 @@ export interface ParentMessage {
     theme?: 'light' | 'dark' | 'auto'
     locale?: string
     collectBillingAddress?: boolean
+    variables?: AppearanceVariables
   }
   payload?: any
 }

@@ -7,6 +7,7 @@ import { usePortalSession } from './hooks/usePortalSession'
 import { usePortalMessaging, IframeMessage } from './hooks/usePortalMessaging'
 import { PricingTable } from '../PricingTable'
 import { cn } from '../../utils/cn'
+import { useBillingOS } from '../../providers/BillingOSProvider'
 import { Alert, AlertDescription } from '../ui/alert'
 
 type PortalState = 'loading' | 'ready' | 'error'
@@ -37,9 +38,14 @@ export interface CustomerPortalProps {
   defaultTab?: PortalTab
 
   /**
-   * Optional: Custom theme
+   * @deprecated Use `appearance.theme` on `<BillingOSProvider>` instead.
    */
   theme?: 'light' | 'dark'
+
+  /**
+   * @deprecated Use `appearance.variables.colorPrimary` on `<BillingOSProvider>` instead.
+   */
+  accentColor?: string
 
   /**
    * Optional: Custom class name
@@ -87,7 +93,8 @@ export function CustomerPortal({
   onClose,
   mode = 'drawer',
   defaultTab = 'subscription',
-  theme = 'light',
+  theme: themeProp,
+  accentColor: accentColorProp,
   className,
   customerId,
   metadata,
@@ -97,6 +104,11 @@ export function CustomerPortal({
   onPaymentMethodUpdate,
   debug = false
 }: CustomerPortalProps) {
+  const { appearance } = useBillingOS()
+  // Resolve theme: prop > appearance > default 'dark'
+  const theme = themeProp ?? appearance?.theme ?? 'dark'
+  // Resolve accentColor: prop > appearance.variables.colorPrimary
+  const accentColor = accentColorProp ?? appearance?.variables?.colorPrimary
   const [state, setState] = useState<PortalState>('loading')
   const [error, setError] = useState<Error | null>(null)
   const [iframeHeight, setIframeHeight] = useState(600)
@@ -104,25 +116,26 @@ export function CustomerPortal({
   const [portalCustomer, setPortalCustomer] = useState<{ email?: string; name?: string } | null>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  // Log version on mount (only once)
   useEffect(() => {
-    console.log(
-      '%c🚀 BillingOS SDK v1.2.0 - Iframe Customer Portal with Smart Pricing Table',
-      'background: linear-gradient(to right, #667eea, #764ba2); color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;'
-    )
-    console.log('%c📦 Using iframe for instant updates and security', 'color: #10b981; font-weight: 600;')
-    console.log('%c🎨 Supports drawer, modal, and page modes', 'color: #8b5cf6; font-weight: 600;')
-    if (debug) {
-      console.log('[CustomerPortal] Debug mode enabled')
-    }
+    if (debug) console.log('[CustomerPortal] Debug mode enabled')
   }, [])
 
   // Create portal session when opened
   const isOpenOrPage = mode === 'page' || isOpen
+  // Merge legacy accentColor prop into appearance variables
+  const mergedAppearance = {
+    theme: theme as 'light' | 'dark' | 'auto',
+    variables: {
+      ...appearance?.variables,
+      ...(accentColor ? { colorPrimary: accentColor } : {}),
+    },
+  }
+
   const { sessionId, sessionUrl, loading, error: sessionError } = usePortalSession({
     enabled: isOpenOrPage,
     customerId,
-    metadata
+    metadata,
+    appearance: mergedAppearance,
   })
 
   // Handle iframe messaging
@@ -133,64 +146,53 @@ export function CustomerPortal({
 
     switch (message.type) {
       case 'PORTAL_READY':
-        console.log('[CustomerPortal] Portal is ready')
         setState('ready')
         break
 
       case 'PORTAL_CLOSE':
-        console.log('[CustomerPortal] User requested close')
         onClose?.()
         break
 
       case 'SUBSCRIPTION_UPDATED':
-        console.log('[CustomerPortal] Subscription updated')
         onSubscriptionUpdate?.(message.payload)
         break
 
       case 'SUBSCRIPTION_CANCELLED':
-        console.log('[CustomerPortal] Subscription cancelled')
         onSubscriptionCancel?.()
         break
 
       case 'PAYMENT_METHOD_ADDED':
-        console.log('[CustomerPortal] Payment method added')
         onPaymentMethodAdd?.()
         break
 
       case 'PAYMENT_METHOD_UPDATED':
-        console.log('[CustomerPortal] Payment method updated')
         onPaymentMethodUpdate?.()
         break
 
       case 'HEIGHT_CHANGED':
         if (message.payload?.height) {
           setIframeHeight(message.payload.height)
-          if (debug) {
-            console.log('[CustomerPortal] Height changed to:', message.payload.height)
-          }
+          if (debug) console.log('[CustomerPortal] Height changed to:', message.payload.height)
         }
         break
 
       case 'OPEN_PRICING_TABLE':
-        console.log('[CustomerPortal] Opening pricing table for plan change')
         if (message.payload?.customer) {
-          console.log('[CustomerPortal] Received customer data for prefill:', message.payload.customer)
           setPortalCustomer(message.payload.customer)
         }
         setShowPricingTable(true)
         break
 
       case 'CLOSE_PRICING_TABLE':
-        console.log('[CustomerPortal] Closing pricing table')
         setShowPricingTable(false)
         break
 
-      case 'ERROR':
+      case 'ERROR': {
         setState('error')
         const errorMessage = message.payload?.error || 'An error occurred'
-        const err = new Error(errorMessage)
-        setError(err)
+        setError(new Error(errorMessage))
         break
+      }
 
       default:
         break
@@ -210,8 +212,9 @@ export function CustomerPortal({
         type: 'INIT_PORTAL',
         sessionId,
         config: {
-          theme,
-          defaultTab
+          theme: theme as 'light' | 'dark' | 'auto',
+          defaultTab,
+          variables: mergedAppearance.variables,
         }
       })
     }
@@ -238,16 +241,9 @@ export function CustomerPortal({
   const showError = state === 'error' && error
 
   // Portal content
+  const isDark = theme === 'dark'
   const portalContent = (
     <>
-      {/* Iframe Badge */}
-      <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium px-2 py-1 rounded-full shadow-lg">
-        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-        </svg>
-        <span>Secure Iframe</span>
-      </div>
-
       {showError ? (
         <div className="p-8">
           <Alert variant="destructive">
@@ -257,11 +253,10 @@ export function CustomerPortal({
       ) : (
         <>
           {showSpinner && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
-              <div className="flex flex-col items-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                <p className="mt-4 text-gray-600 font-medium">Loading portal...</p>
-                <p className="mt-2 text-xs text-gray-500">Iframe-based • Always up-to-date</p>
+            <div className={cn('absolute inset-0 flex items-center justify-center z-10', isDark ? 'bg-[#141415]' : 'bg-white')}>
+              <div className="flex flex-col items-center gap-3">
+                <div className={cn('animate-spin rounded-full h-10 w-10 border-[3px]', isDark ? 'border-neutral-700 border-t-neutral-300' : 'border-neutral-200 border-t-neutral-600')} />
+                <p className={cn('text-sm font-medium', isDark ? 'text-neutral-400' : 'text-neutral-500')}>Loading...</p>
               </div>
             </div>
           )}
@@ -276,19 +271,7 @@ export function CustomerPortal({
                 showSpinner ? "opacity-0" : "opacity-100"
               )}
               onLoad={() => {
-                console.log(
-                  '%c✅ Portal iframe loaded successfully',
-                  'color: #10b981; font-weight: 600;',
-                  `\nURL: ${sessionUrl}`
-                )
-                if (debug) {
-                  console.log('[CustomerPortal] Full iframe details:', {
-                    sessionUrl,
-                    sessionId,
-                    state,
-                    height: iframeHeight
-                  })
-                }
+                if (debug) console.log('[CustomerPortal] iframe loaded:', sessionUrl)
               }}
             />
           )}
@@ -346,20 +329,14 @@ export function CustomerPortal({
           </DialogHeader>
           <PricingTable
             useCheckoutModal={true}
-            theme={theme}
             customer={portalCustomer || undefined}
             onPlanChanged={(subscription) => {
-              console.log('[CustomerPortal] Plan changed successfully:', subscription)
-              // Close the pricing table
               setShowPricingTable(false)
-              // Clear customer data
               setPortalCustomer(null)
-              // Send message back to portal iframe to refresh
               sendMessage({
                 type: 'UPDATE_CONFIG',
                 payload: { refresh: true }
               })
-              // Notify parent app
               onSubscriptionUpdate?.(subscription)
             }}
           />

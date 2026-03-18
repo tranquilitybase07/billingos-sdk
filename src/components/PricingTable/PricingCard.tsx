@@ -13,7 +13,6 @@ export interface PricingCardProps {
   currentSubscription: PricingCurrentSubscription | null
   currentPlanAmount: number
   onSelectPlan: (priceId: string) => void
-  theme?: 'light' | 'dark'
 }
 
 
@@ -77,20 +76,28 @@ export function PricingCard({
   return (
     <div
       className={cn(
-        'relative rounded-2xl border bg-white p-8 transition-all duration-300',
+        'relative border bg-white p-8 transition-all duration-300',
         isHighlighted
-          ? 'border-blue-200 ring-2 ring-blue-600 shadow-xl shadow-blue-500/10 md:scale-105 z-10'
+          ? 'shadow-xl md:scale-105 z-10'
           : 'border-slate-200 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1'
       )}
+      style={{
+        borderRadius: 'var(--bos-radius, 1rem)',
+        ...(isHighlighted ? {
+          borderColor: 'color-mix(in srgb, var(--bos-primary, #2563eb) 30%, transparent)',
+          boxShadow: '0 0 0 2px var(--bos-primary, #2563eb), 0 20px 25px -5px color-mix(in srgb, var(--bos-primary, #2563eb) 10%, transparent)',
+        } : {}),
+      }}
     >
       {/* Floating badge */}
       {(product.highlighted || product.isCurrentPlan) && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
           <Badge
             className={cn(
-              'border-0 px-4 py-1 text-xs font-semibold',
-              product.isCurrentPlan ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+              'border-0 px-4 py-1 text-xs font-semibold text-white',
+              product.isCurrentPlan && 'bg-emerald-600'
             )}
+            style={!product.isCurrentPlan ? { backgroundColor: 'var(--bos-primary, #2563eb)' } : undefined}
           >
             {product.isCurrentPlan ? 'Current Plan' : 'Most Popular'}
           </Badge>
@@ -99,7 +106,7 @@ export function PricingCard({
 
       {/* Header */}
       <div className="mb-6">
-        <h3 className="text-xl font-semibold text-slate-900 mb-1">{product.name}</h3>
+        <h3 className="text-xl font-semibold mb-1" style={{ color: 'var(--bos-text, #0f172a)' }}>{product.name}</h3>
         {product.description && (
           <p className="text-sm text-slate-500">{product.description}</p>
         )}
@@ -108,7 +115,7 @@ export function PricingCard({
       {/* Price */}
       <div className="mb-6">
         <div className="flex items-baseline gap-1">
-          <span className="text-4xl font-bold text-slate-900">
+          <span className="text-4xl font-bold" style={{ color: 'var(--bos-text, #0f172a)' }}>
             {currentPrice ? formatPrice(currentPrice) : '$0'}
           </span>
           <span className="text-slate-500 text-sm">{isYearly ? '/year' : '/mo'}</span>
@@ -135,13 +142,19 @@ export function PricingCard({
         disabled={product.isCurrentPlan}
         onClick={handleClick}
         className={cn(
-          'w-full mb-8 h-11 rounded-xl font-medium transition-all border-0',
+          'w-full mb-8 h-11 font-medium transition-all border-0',
           product.isCurrentPlan
             ? 'bg-slate-100 text-slate-400 cursor-not-allowed hover:bg-slate-100'
             : isHighlighted
-            ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25'
+            ? 'text-white shadow-md hover:opacity-90'
             : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
         )}
+        style={{
+          borderRadius: 'var(--bos-radius, 0.75rem)',
+          ...(isHighlighted && !product.isCurrentPlan ? {
+            backgroundColor: 'var(--bos-primary, #2563eb)',
+          } : {}),
+        }}
       >
         {getButtonLabel()}
       </Button>
@@ -174,11 +187,12 @@ export function PricingCard({
                 <div
                   className={cn(
                     'flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0',
-                    hasFeature ? 'bg-blue-100' : 'bg-slate-100'
+                    !hasFeature && 'bg-slate-100'
                   )}
+                  style={hasFeature ? { backgroundColor: 'color-mix(in srgb, var(--bos-primary, #2563eb) 15%, transparent)' } : undefined}
                 >
                   {hasFeature ? (
-                    <Check className="w-3 h-3 text-blue-600" />
+                    <Check className="w-3 h-3" style={{ color: 'var(--bos-primary, #2563eb)' }} />
                   ) : (
                     <X className="w-3 h-3 text-slate-400" />
                   )}

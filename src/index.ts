@@ -15,6 +15,9 @@ export * from './components'
 // Providers
 export * from './providers'
 
+// Types
+export type { AppearanceConfig, AppearanceVariables } from './types/appearance'
+
 // Utils
 export * from './utils'
 

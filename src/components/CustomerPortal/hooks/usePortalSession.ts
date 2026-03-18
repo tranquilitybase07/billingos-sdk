@@ -1,11 +1,14 @@
 "use client";
 import { useState, useEffect } from 'react'
 import { useBillingOS } from '../../../providers/BillingOSProvider'
+import type { AppearanceConfig } from '../../../types/appearance'
+import { serializeAppearanceToParams } from '../../../types/appearance'
 
 interface UsePortalSessionOptions {
   enabled: boolean
   customerId?: string
   metadata?: Record<string, any>
+  appearance?: AppearanceConfig
 }
 
 interface UsePortalSessionReturn {
@@ -19,7 +22,8 @@ interface UsePortalSessionReturn {
 export function usePortalSession({
   enabled,
   customerId,
-  metadata
+  metadata,
+  appearance,
 }: UsePortalSessionOptions): UsePortalSessionReturn {
   const { client, appUrl, debug } = useBillingOS()
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -46,7 +50,9 @@ export function usePortalSession({
       if (debug) console.log('[BillingOS] Portal session created:', session.id)
 
       // Generate iframe URL using appUrl from BillingOSProvider context
-      const iframeUrl = `${appUrl}/embed/portal/${session.id}`
+      const params = serializeAppearanceToParams(appearance)
+      const query = params.toString()
+      const iframeUrl = `${appUrl}/embed/portal/${session.id}${query ? '?' + query : ''}`
       setSessionUrl(iframeUrl)
 
       if (debug) console.log('[BillingOS] Iframe URL:', iframeUrl)

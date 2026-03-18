@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BillingOSClient, BillingOSClientOptions } from '../client'
 import { useSessionToken, UseSessionTokenOptions } from '../hooks/useSessionToken'
 import { resolveApiUrl, resolveAppUrl, resolveApiUrlFromToken, BILLINGOS_APP_URL } from '../utils/urls'
+import type { AppearanceConfig } from '../types/appearance'
+import { sanitizeAppearance, buildCSSVariables } from '../types/appearance'
 
 /**
  * Context value provided by BillingOSProvider
@@ -16,6 +18,7 @@ export interface BillingOSContextValue {
   customerEmail?: string
   customerName?: string
   organizationId?: string
+  appearance?: AppearanceConfig
   debug: boolean
 }
 
@@ -75,6 +78,12 @@ export interface BillingOSProviderProps {
   queryClient?: QueryClient
 
   /**
+   * Appearance configuration for theming all BillingOS components.
+   * Set theme and brand tokens (colors, border radius, font) once at the provider level.
+   */
+  appearance?: AppearanceConfig
+
+  /**
    * Enable debug logging. Off by default.
    */
   debug?: boolean
@@ -110,9 +119,13 @@ export function BillingOSProvider({
   organizationId,
   options,
   queryClient,
+  appearance: rawAppearance,
   debug = false,
   children,
 }: BillingOSProviderProps) {
+  // Sanitize appearance to prevent CSS injection
+  const appearance = useMemo(() => sanitizeAppearance(rawAppearance), [rawAppearance])
+  const cssVars = useMemo(() => buildCSSVariables(appearance?.variables), [appearance?.variables])
   // Resolve URLs: prop/env var overrides take priority, otherwise auto-detect from token prefix
   const hasApiUrlOverride = !!(apiUrlProp || (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BILLINGOS_API_URL))
   const hasAppUrlOverride = !!(appUrlProp || (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BILLINGOS_APP_URL))
@@ -158,17 +171,22 @@ export function BillingOSProvider({
       customerEmail,
       customerName,
       organizationId,
+      appearance,
       debug,
     }),
-    [client, apiUrl, appUrl, customerId, customerEmail, customerName, organizationId, debug]
+    [client, apiUrl, appUrl, customerId, customerEmail, customerName, organizationId, appearance, debug]
   )
+
+  const hasCssVars = Object.keys(cssVars).length > 0
+  const wrapChildren = (content: React.ReactNode) =>
+    hasCssVars ? <div style={cssVars as React.CSSProperties}>{content}</div> : content
 
   if (sessionTokenUrl && isLoading) {
     if (debug) console.log('[BillingOS] Fetching session token...')
     return (
       <BillingOSContext.Provider value={contextValue}>
         <QueryClientProvider client={qc}>
-          {loadingFallback !== undefined ? loadingFallback : children}
+          {wrapChildren(loadingFallback !== undefined ? loadingFallback : children)}
         </QueryClientProvider>
       </BillingOSContext.Provider>
     )
@@ -178,7 +196,7 @@ export function BillingOSProvider({
     console.error('[BillingOS] Failed to fetch session token:', error)
     return (
       <BillingOSContext.Provider value={contextValue}>
-        <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+        <QueryClientProvider client={qc}>{wrapChildren(children)}</QueryClientProvider>
       </BillingOSContext.Provider>
     )
   }
@@ -189,14 +207,14 @@ export function BillingOSProvider({
     }
     return (
       <BillingOSContext.Provider value={contextValue}>
-        <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+        <QueryClientProvider client={qc}>{wrapChildren(children)}</QueryClientProvider>
       </BillingOSContext.Provider>
     )
   }
 
   return (
     <BillingOSContext.Provider value={contextValue}>
-      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+      <QueryClientProvider client={qc}>{wrapChildren(children)}</QueryClientProvider>
     </BillingOSContext.Provider>
   )
 }
