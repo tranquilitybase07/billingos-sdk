@@ -141,7 +141,7 @@ export function PricingTable({
   // ── Loading ──────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <section className={cn('py-20 px-4 sm:px-6 lg:px-8 min-h-screen', isDark && 'dark')} style={{ backgroundColor: 'var(--bos-bg, #f8fafc)' }}>
+      <section className="py-20 px-4 sm:px-6 lg:px-8 min-h-screen" style={{ backgroundColor: isDark ? 'var(--bos-bg, #141415)' : 'var(--bos-bg, #f8fafc)' }}>
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <Skeleton className="h-12 w-72 mx-auto mb-4" />
@@ -159,7 +159,7 @@ export function PricingTable({
   // ── Error ────────────────────────────────────────────────────────────────
   if (error) {
     return (
-      <section className={cn('py-20 px-4', isDark && 'dark')}>
+      <section className="py-20 px-4">
         <div className="max-w-md mx-auto">
           <Alert variant="destructive">
             <AlertDescription>{error.message || 'Failed to load pricing plans'}</AlertDescription>
@@ -175,7 +175,7 @@ export function PricingTable({
   // ── Empty ────────────────────────────────────────────────────────────────
   if (products.length === 0) {
     return (
-      <section className={cn('py-20 px-4 text-center', isDark && 'dark')}>
+      <section className="py-20 px-4 text-center">
         <p className="text-muted-foreground">No pricing plans available</p>
       </section>
     )
@@ -222,6 +222,7 @@ export function PricingTable({
           currentSubscription={currentSubscription}
           currentPlanAmount={currentPlanAmount}
           onSelectPlan={handleSelectPlan}
+          isDark={isDark}
         />
       ))}
     </div>
@@ -229,29 +230,26 @@ export function PricingTable({
 
   if (compact) {
     return (
-      <div className={cn(isDark && 'dark')}>
+      <>
         {cardsGrid}
         {paymentComponent}
-      </div>
+      </>
     )
   }
 
   return (
     <section
-      className={cn(
-        'py-20 px-4 sm:px-6 lg:px-8 min-h-screen',
-        isDark && 'dark'
-      )}
-      style={{ backgroundColor: 'var(--bos-bg, #f8fafc)', fontFamily: 'var(--bos-font, inherit)' }}
+      className="py-20 px-4 sm:px-6 lg:px-8 min-h-screen"
+      style={{ backgroundColor: isDark ? 'var(--bos-bg, #141415)' : 'var(--bos-bg, #f8fafc)', fontFamily: 'var(--bos-font, inherit)' }}
     >
       <div className="max-w-5xl mx-auto">
         {/* Success notification */}
         {showSuccessMessage && (
-          <div className="mb-8 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+          <div className={cn('mb-8 p-4 border rounded-xl flex items-center gap-3', isDark ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200')}>
             <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <p className="text-green-800 font-medium text-sm">
+            <p className={cn('font-medium text-sm', isDark ? 'text-green-300' : 'text-green-800')}>
               Payment successful! Your subscription has been updated.
             </p>
           </div>
@@ -260,19 +258,19 @@ export function PricingTable({
         {/* Header */}
         <div className="text-center mb-16">
           {title && (
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4" style={{ color: 'var(--bos-text, #0f172a)' }}>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4" style={{ color: isDark ? 'var(--bos-text, #f4f4f5)' : 'var(--bos-text, #0f172a)' }}>
               {title}
             </h1>
           )}
           {description && (
-            <p className="text-lg text-slate-500 max-w-2xl mx-auto">{description}</p>
+            <p className={cn('text-lg max-w-2xl mx-auto', isDark ? 'text-slate-400' : 'text-slate-500')}>{description}</p>
           )}
         </div>
 
         {/* Billing toggle */}
         {showIntervalToggle && hasYearlyPricing && (
           <div className="flex items-center justify-center gap-4 mb-16">
-            <span className={cn('text-sm font-medium transition-colors', !isYearly ? 'text-slate-900' : 'text-slate-400')}>
+            <span className={cn('text-sm font-medium transition-colors', !isYearly ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-500' : 'text-slate-400'))}>
               Monthly
             </span>
             <Switch
@@ -280,7 +278,7 @@ export function PricingTable({
               onCheckedChange={setIsYearly}
               aria-label="Billing frequency"
             />
-            <span className={cn('text-sm font-medium transition-colors', isYearly ? 'text-slate-900' : 'text-slate-400')}>
+            <span className={cn('text-sm font-medium transition-colors', isYearly ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-500' : 'text-slate-400'))}>
               Yearly
             </span>
             {isYearly && (
@@ -296,7 +294,7 @@ export function PricingTable({
         {/* Footer */}
         {footerText && (
           <div className="text-center mt-16">
-            <p className="text-sm text-slate-400">{footerText}</p>
+            <p className={cn('text-sm', isDark ? 'text-slate-500' : 'text-slate-400')}>{footerText}</p>
           </div>
         )}
       </div>

@@ -64,7 +64,7 @@ export interface CheckoutModalProps {
   theme?: 'light' | 'dark' | 'auto'
 
   /**
-   * @deprecated Use `appearance.variables.colorPrimary` on `<BillingOSProvider>` instead.
+   * @deprecated Use `appearance.light.colorPrimary` / `appearance.dark.colorPrimary` on `<BillingOSProvider>` instead.
    */
   accentColor?: string
 
@@ -123,8 +123,18 @@ export function CheckoutModal({
   const { appUrl, appearance, debug: contextDebug } = useBillingOS()
   // Resolve theme: prop > appearance > default 'light'
   const theme = themeProp ?? appearance?.theme ?? 'light'
-  // Resolve accentColor: prop > appearance.variables.colorPrimary
-  const accentColor = accentColorProp ?? appearance?.variables?.colorPrimary
+  // Resolve accentColor: prop > appearance resolved colorPrimary
+  const resolvedVars = (() => {
+    if (!appearance) return undefined
+    const isDarkTheme = theme === 'dark' || (
+      theme === 'auto' && typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-color-scheme: dark)').matches
+    )
+    return isDarkTheme
+      ? (appearance.dark ?? appearance.light ?? {})
+      : (appearance.light ?? appearance.dark ?? {})
+  })()
+  const accentColor = accentColorProp ?? resolvedVars?.colorPrimary
   const isDebug = debug || contextDebug
 
   const [state, setState] = useState<CheckoutState>('loading')
@@ -137,8 +147,12 @@ export function CheckoutModal({
   // Merge legacy accentColor prop into appearance variables
   const mergedAppearance = {
     theme: theme as 'light' | 'dark' | 'auto',
-    variables: {
-      ...appearance?.variables,
+    light: {
+      ...appearance?.light,
+      ...(accentColor ? { colorPrimary: accentColor } : {}),
+    },
+    dark: {
+      ...appearance?.dark,
       ...(accentColor ? { colorPrimary: accentColor } : {}),
     },
   }
@@ -212,7 +226,10 @@ export function CheckoutModal({
           theme: theme as 'light' | 'dark' | 'auto',
           locale,
           collectBillingAddress,
-          variables: mergedAppearance.variables,
+          variables: {
+            ...resolvedVars,
+            ...(accentColor ? { colorPrimary: accentColor } : {}),
+          },
         }
       })
     }

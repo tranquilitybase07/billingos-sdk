@@ -17,6 +17,7 @@ export * from './providers'
 
 // Types
 export type { AppearanceConfig, AppearanceVariables } from './types/appearance'
+export { resolveAppearanceVariables } from './types/appearance'
 
 // Utils
 export * from './utils'

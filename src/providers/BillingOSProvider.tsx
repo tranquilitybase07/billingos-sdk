@@ -5,7 +5,7 @@ import { BillingOSClient, BillingOSClientOptions } from '../client'
 import { useSessionToken, UseSessionTokenOptions } from '../hooks/useSessionToken'
 import { resolveApiUrl, resolveAppUrl, resolveApiUrlFromToken, BILLINGOS_APP_URL } from '../utils/urls'
 import type { AppearanceConfig } from '../types/appearance'
-import { sanitizeAppearance, buildCSSVariables } from '../types/appearance'
+import { sanitizeAppearance, buildCSSVariables, resolveAppearanceVariables } from '../types/appearance'
 
 /**
  * Context value provided by BillingOSProvider
@@ -125,7 +125,8 @@ export function BillingOSProvider({
 }: BillingOSProviderProps) {
   // Sanitize appearance to prevent CSS injection
   const appearance = useMemo(() => sanitizeAppearance(rawAppearance), [rawAppearance])
-  const cssVars = useMemo(() => buildCSSVariables(appearance?.variables), [appearance?.variables])
+  const resolvedVars = useMemo(() => resolveAppearanceVariables(appearance), [appearance])
+  const cssVars = useMemo(() => buildCSSVariables(resolvedVars), [resolvedVars])
   // Resolve URLs: prop/env var overrides take priority, otherwise auto-detect from token prefix
   const hasApiUrlOverride = !!(apiUrlProp || (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BILLINGOS_API_URL))
   const hasAppUrlOverride = !!(appUrlProp || (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BILLINGOS_APP_URL))

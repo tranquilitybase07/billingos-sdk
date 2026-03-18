@@ -43,7 +43,7 @@ export interface CustomerPortalProps {
   theme?: 'light' | 'dark'
 
   /**
-   * @deprecated Use `appearance.variables.colorPrimary` on `<BillingOSProvider>` instead.
+   * @deprecated Use `appearance.light.colorPrimary` / `appearance.dark.colorPrimary` on `<BillingOSProvider>` instead.
    */
   accentColor?: string
 
@@ -107,8 +107,18 @@ export function CustomerPortal({
   const { appearance } = useBillingOS()
   // Resolve theme: prop > appearance > default 'dark'
   const theme = themeProp ?? appearance?.theme ?? 'dark'
-  // Resolve accentColor: prop > appearance.variables.colorPrimary
-  const accentColor = accentColorProp ?? appearance?.variables?.colorPrimary
+  // Resolve accentColor: prop > appearance resolved colorPrimary
+  const resolvedVars = (() => {
+    if (!appearance) return undefined
+    const isDarkTheme = theme === 'dark' || (
+      theme === 'auto' && typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-color-scheme: dark)').matches
+    )
+    return isDarkTheme
+      ? (appearance.dark ?? appearance.light ?? {})
+      : (appearance.light ?? appearance.dark ?? {})
+  })()
+  const accentColor = accentColorProp ?? resolvedVars?.colorPrimary
   const [state, setState] = useState<PortalState>('loading')
   const [error, setError] = useState<Error | null>(null)
   const [iframeHeight, setIframeHeight] = useState(600)
@@ -125,8 +135,12 @@ export function CustomerPortal({
   // Merge legacy accentColor prop into appearance variables
   const mergedAppearance = {
     theme: theme as 'light' | 'dark' | 'auto',
-    variables: {
-      ...appearance?.variables,
+    light: {
+      ...appearance?.light,
+      ...(accentColor ? { colorPrimary: accentColor } : {}),
+    },
+    dark: {
+      ...appearance?.dark,
       ...(accentColor ? { colorPrimary: accentColor } : {}),
     },
   }
@@ -214,7 +228,10 @@ export function CustomerPortal({
         config: {
           theme: theme as 'light' | 'dark' | 'auto',
           defaultTab,
-          variables: mergedAppearance.variables,
+          variables: {
+            ...resolvedVars,
+            ...(accentColor ? { colorPrimary: accentColor } : {}),
+          },
         }
       })
     }

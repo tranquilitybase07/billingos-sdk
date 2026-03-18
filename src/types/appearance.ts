@@ -8,7 +8,20 @@ export interface AppearanceVariables {
 
 export interface AppearanceConfig {
   theme?: 'light' | 'dark' | 'auto'
-  variables?: AppearanceVariables
+  light?: AppearanceVariables
+  dark?: AppearanceVariables
+}
+
+/** Resolve the active variable set based on theme */
+export function resolveAppearanceVariables(appearance?: AppearanceConfig): AppearanceVariables {
+  if (!appearance) return {}
+  const isDark = appearance.theme === 'dark' || (
+    appearance.theme === 'auto' && typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-color-scheme: dark)').matches
+  )
+  return isDark
+    ? (appearance.dark ?? appearance.light ?? {})
+    : (appearance.light ?? appearance.dark ?? {})
 }
 
 /** Only allow valid hex: #RGB, #RRGGBB, #RRGGBBAA (with or without #) */
@@ -29,22 +42,25 @@ function sanitizeFontFamily(value?: string): string | undefined {
   return /^[a-zA-Z0-9\s,\-'"]+$/.test(value) ? value : undefined
 }
 
+function sanitizeVariables(v?: AppearanceVariables): AppearanceVariables | undefined {
+  if (!v) return undefined
+  return {
+    colorPrimary: sanitizeHexColor(v.colorPrimary),
+    colorBackground: sanitizeHexColor(v.colorBackground),
+    colorText: sanitizeHexColor(v.colorText),
+    borderRadius: sanitizeCSSLength(v.borderRadius),
+    fontFamily: sanitizeFontFamily(v.fontFamily),
+  }
+}
+
 export function sanitizeAppearance(appearance?: AppearanceConfig): AppearanceConfig | undefined {
   if (!appearance) return undefined
-  const v = appearance.variables
   return {
     theme: (['light', 'dark', 'auto'] as const).includes(appearance.theme as 'light' | 'dark' | 'auto')
       ? appearance.theme
       : undefined,
-    variables: v
-      ? {
-          colorPrimary: sanitizeHexColor(v.colorPrimary),
-          colorBackground: sanitizeHexColor(v.colorBackground),
-          colorText: sanitizeHexColor(v.colorText),
-          borderRadius: sanitizeCSSLength(v.borderRadius),
-          fontFamily: sanitizeFontFamily(v.fontFamily),
-        }
-      : undefined,
+    light: sanitizeVariables(appearance.light),
+    dark: sanitizeVariables(appearance.dark),
   }
 }
 
@@ -65,7 +81,7 @@ export function serializeAppearanceToParams(appearance?: AppearanceConfig): URLS
   const params = new URLSearchParams()
   if (!appearance) return params
   if (appearance.theme) params.set('theme', appearance.theme)
-  const v = appearance.variables
+  const v = resolveAppearanceVariables(appearance)
   if (!v) return params
   if (v.colorPrimary) params.set('primary', v.colorPrimary.replace('#', ''))
   if (v.colorBackground) params.set('bg', v.colorBackground.replace('#', ''))
