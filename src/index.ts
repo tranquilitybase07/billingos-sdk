@@ -1,8 +1,5 @@
 // BillingOS SDK - Main Entry Point
 
-// Import global styles (injected at runtime; CSS string is substituted at build time)
-import './styles/inject'
-
 // Client
 export * from './client'
 

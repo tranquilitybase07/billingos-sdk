@@ -9,7 +9,6 @@ import { Switch } from '../ui/switch'
 import { cn } from '../../utils/cn'
 import { useProducts } from './hooks/useProducts'
 import { PricingCard } from './PricingCard'
-import { PaymentBottomSheet } from '../PaymentBottomSheet'
 import { CheckoutModal } from '../CheckoutModal'
 import { useBillingOS } from '../../providers/BillingOSProvider'
 
@@ -24,8 +23,6 @@ export interface PricingTableProps {
   theme?: 'light' | 'dark'
   title?: string
   description?: string
-  /** Use the iframe-based checkout modal instead of bottom sheet */
-  useCheckoutModal?: boolean
   /** Callback when plan is changed */
   onPlanChanged?: (subscription: any) => void
   /** Customer info to prefill in checkout (overrides context) */
@@ -55,7 +52,6 @@ export function PricingTable({
   theme: themeProp,
   title = 'Simple, transparent pricing',
   description = 'Choose the perfect plan for your needs. No hidden fees, cancel anytime.',
-  useCheckoutModal = false,
   onPlanChanged,
   customer: customerProp,
   footerText = 'All plans include SSL security and 99.9% uptime SLA',
@@ -182,26 +178,14 @@ export function PricingTable({
   }
 
   const paymentComponent = !onSelectPlan && selectedPriceId ? (
-    <>
-      {useCheckoutModal ? (
-        <CheckoutModal
-          open={isPaymentOpen}
-          onOpenChange={(open) => { if (!open) { setIsPaymentOpen(false); setSelectedPriceId(null) } }}
-          priceId={selectedPriceId}
-          customer={{ email: finalCustomerEmail, name: finalCustomerName }}
-          onSuccess={handlePaymentSuccess}
-          existingSubscriptionId={currentSubscription?.id}
-        />
-      ) : (
-        <PaymentBottomSheet
-          priceId={selectedPriceId}
-          isOpen={isPaymentOpen}
-          onClose={() => { setIsPaymentOpen(false); setSelectedPriceId(null) }}
-          onSuccess={handlePaymentSuccess}
-          existingSubscriptionId={currentSubscription?.id}
-        />
-      )}
-    </>
+    <CheckoutModal
+      open={isPaymentOpen}
+      onOpenChange={(open) => { if (!open) { setIsPaymentOpen(false); setSelectedPriceId(null) } }}
+      priceId={selectedPriceId}
+      customer={{ email: finalCustomerEmail, name: finalCustomerName }}
+      onSuccess={handlePaymentSuccess}
+      existingSubscriptionId={currentSubscription?.id}
+    />
   ) : null
 
   const cardsGrid = (

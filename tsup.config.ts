@@ -46,11 +46,7 @@ export default defineConfig(async () => {
     external: [
       'react',
       'react-dom',
-      '@stripe/react-stripe-js',
-      '@stripe/stripe-js',
       '@tanstack/react-query',
-      'react-shadow-scope',
-      'react-hook-form',
       'class-variance-authority',
       'clsx',
       'tailwind-merge',

@@ -325,19 +325,4 @@ export class BillingOS {
     return this.client.get<UsageMetricsResponse>(url);
   }
 
-  // ==========================================================================
-  // Webhooks
-  // ==========================================================================
-
-  /**
-   * Verify a webhook signature
-   *
-   * @example
-   * const isValid = billing.verifyWebhook(req.body, req.headers['billingos-signature']);
-   */
-  verifyWebhook(_payload: any, _signature: string): boolean {
-    // TODO: Implement HMAC signature verification
-    // This will be implemented in the next phase
-    return true;
-  }
 }

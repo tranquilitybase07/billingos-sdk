@@ -1,11 +1,12 @@
 "use client";
-import React, { createContext, useContext, useMemo } from 'react'
+import React, { createContext, useContext, useEffect, useMemo } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BillingOSClient, BillingOSClientOptions } from '../client'
 import { useSessionToken, UseSessionTokenOptions } from '../hooks/useSessionToken'
 import { resolveApiUrl, resolveAppUrl, resolveApiUrlFromToken, BILLINGOS_APP_URL } from '../utils/urls'
 import type { AppearanceConfig } from '../types/appearance'
 import { sanitizeAppearance, buildCSSVariables, resolveAppearanceVariables } from '../types/appearance'
+import { injectStyles } from '../styles/inject'
 
 /**
  * Context value provided by BillingOSProvider
@@ -123,6 +124,8 @@ export function BillingOSProvider({
   debug = false,
   children,
 }: BillingOSProviderProps) {
+  useEffect(() => { injectStyles() }, [])
+
   // Sanitize appearance to prevent CSS injection
   const appearance = useMemo(() => sanitizeAppearance(rawAppearance), [rawAppearance])
   const resolvedVars = useMemo(() => resolveAppearanceVariables(appearance), [appearance])

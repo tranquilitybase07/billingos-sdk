@@ -345,7 +345,6 @@ export function CustomerPortal({
             <DialogTitle>Change Your Plan</DialogTitle>
           </DialogHeader>
           <PricingTable
-            useCheckoutModal={true}
             customer={portalCustomer || undefined}
             onPlanChanged={(subscription) => {
               setShowPricingTable(false)
