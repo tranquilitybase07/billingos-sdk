@@ -1,14 +1,5 @@
 // BillingOS SDK - Main Entry Point
 
-// Log SDK version on load
-console.log(
-  '%c🎯 BillingOS SDK v1.2.0 loaded with Iframe Checkout',
-  'background: #3b82f6; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 14px;'
-)
-
-// Import global styles (will be bundled)
-import './styles/globals.css'
-
 // Client
 export * from './client'
 
@@ -20,6 +11,10 @@ export * from './components'
 
 // Providers
 export * from './providers'
+
+// Types
+export type { AppearanceConfig, AppearanceVariables } from './types/appearance'
+export { resolveAppearanceVariables } from './types/appearance'
 
 // Utils
 export * from './utils'

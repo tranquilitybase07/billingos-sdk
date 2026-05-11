@@ -1,3 +1,4 @@
+"use client";
 /**
  * Hook for managing session tokens with auto-fetch and auto-refresh
  */

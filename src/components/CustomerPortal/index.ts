@@ -31,4 +31,3 @@ export { WarningBanner } from './components/WarningBanner'
 
 export { ChangePlanModal } from './modals/ChangePlanModal'
 export { CancelSubscriptionModal } from './modals/CancelSubscriptionModal'
-export { AddPaymentMethodModal } from './modals/AddPaymentMethodModal'

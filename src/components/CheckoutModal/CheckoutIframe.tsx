@@ -1,3 +1,4 @@
+"use client";
 import React, { forwardRef } from 'react'
 import { cn } from '../../utils/cn'
 
@@ -37,7 +38,7 @@ export const CheckoutIframe = forwardRef<HTMLIFrameElement, CheckoutIframeProps>
         className={cn("w-full border-none", className)}
         style={{
           height: typeof height === 'number' ? `${height}px` : height,
-          minHeight: '400px',
+          minHeight: '700px',
           maxHeight: '80vh'
         }}
         onLoad={onLoad}

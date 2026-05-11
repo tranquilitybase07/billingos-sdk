@@ -1,3 +1,4 @@
+"use client";
 import { Alert, AlertTitle, AlertDescription } from '../../ui/alert'
 import { Button } from '../../ui/button'
 import { cn } from '@/utils/cn'

@@ -4,9 +4,6 @@ export * from './ui'
 // CustomerPortal Component
 export * from './CustomerPortal'
 
-// PaymentBottomSheet Component
-export * from './PaymentBottomSheet'
-
 // CheckoutModal Component (iframe-based)
 export * from './CheckoutModal'
 

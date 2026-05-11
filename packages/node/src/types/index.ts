@@ -132,23 +132,6 @@ export interface UpdateSubscriptionInput {
 }
 
 // ============================================================================
-// Webhooks
-// ============================================================================
-
-export interface WebhookEvent {
-  id: string;
-  type: string;
-  data: Record<string, any>;
-  createdAt: Date;
-}
-
-export interface WebhookVerificationResult {
-  valid: boolean;
-  event?: WebhookEvent;
-  error?: string;
-}
-
-// ============================================================================
 // Usage Tracking
 // ============================================================================
 

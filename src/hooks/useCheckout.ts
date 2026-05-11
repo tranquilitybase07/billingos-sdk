@@ -1,3 +1,4 @@
+"use client";
 import { useState, useCallback } from 'react'
 import { useBillingOS } from '../providers/BillingOSProvider'
 import { getCheckoutAPI, type CheckoutOpenOptions } from '../checkout'
@@ -21,6 +22,7 @@ export function useCheckout() {
   const [error, setError] = useState<Error | null>(null)
 
   const openCheckout = useCallback(async (options: Omit<CheckoutOpenOptions, 'sessionToken' | 'apiUrl'>): Promise<CheckoutResult> => {
+    if (!client) return { success: false, error: new Error('[BillingOS] No active session') }
     setIsLoading(true)
     setError(null)
 
@@ -43,6 +45,7 @@ export function useCheckout() {
   }, [client])
 
   const closeCheckout = useCallback(() => {
+    if (!client) return
     const api = getCheckoutAPI(client)
     api.close()
   }, [client])

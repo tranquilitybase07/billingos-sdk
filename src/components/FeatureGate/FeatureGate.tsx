@@ -1,3 +1,4 @@
+"use client";
 import React from 'react'
 import { useFeatureGate } from '../../hooks/useFeature'
 

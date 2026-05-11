@@ -1,6 +1,6 @@
 {
   "name": "@billingos/sdk",
-  "version": "0.1.2",
+  "version": "0.1.8",
   "description": "React SDK for BillingOS - billing, subscriptions, and payments (with iframe checkout)",
   "type": "module",
   "main": "./dist/index.js",
@@ -18,16 +18,18 @@
     "README.md",
     "LICENSE"
   ],
+  "sideEffects": false,
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsup",
     "prepare": "pnpm build && pnpm --filter @billingos/node build",
-    "preview": "vite preview",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "pnpm prepare && changeset publish"
+    "release": "pnpm prepare && changeset publish",
+    "dev": "tsup --watch",
+    "dev:all": "pnpm dev & pnpm --filter @billingos/node dev",
+    "dev:playground": "pnpm --filter @billingos/playground dev"
   },
   "keywords": [
     "billing",
@@ -47,24 +49,19 @@
   },
   "packageManager": "pnpm@10.26.2",
   "peerDependencies": {
-    "react": "^18.0.0 || ^19.0.0",
-    "react-dom": "^18.0.0 || ^19.0.0",
-    "@stripe/react-stripe-js": "^4.0.2",
-    "@stripe/stripe-js": "^7.1.0",
     "@tanstack/react-query": "^5.90.0",
-    "react-hook-form": "^7.68.0"
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "react-shadow-scope": "^2.0.3",
     "tailwind-merge": "^2.6.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
-    "@stripe/react-stripe-js": "^4.0.2",
-    "@stripe/stripe-js": "^7.1.0",
+    "@changesets/cli": "^2.30.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@tanstack/react-query": "^5.90.0",
     "@types/node": "^22.10.5",
@@ -72,20 +69,15 @@
     "@types/react-dom": "^19.0.3",
     "@typescript-eslint/eslint-plugin": "^8.19.1",
     "@typescript-eslint/parser": "^8.19.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
     "eslint": "^9.18.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.16",
+    "lucide-react": "^0.577.0",
     "postcss": "^8.4.49",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-hook-form": "^7.68.0",
-    "rollup-plugin-peer-deps-external": "^2.2.4",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5.7.3",
-    "vite": "^6.0.11",
-    "vite-plugin-css-injected-by-js": "^3.5.2",
-    "vite-plugin-dts": "^4.4.0"
+    "tsup": "^8.5.1",
+    "typescript": "^5.7.3"
   }
 }

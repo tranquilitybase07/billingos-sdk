@@ -1,3 +1,4 @@
+"use client";
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { CheckoutModal, CheckoutModalProps } from './components/CheckoutModal'
@@ -87,6 +88,12 @@ export interface CheckoutOpenOptions {
    * API base URL (if not using provider)
    */
   apiUrl?: string
+
+  /**
+   * Enable Stripe Adaptive Pricing — lets customers pay in their local currency (~150 countries).
+   * Defaults to true.
+   */
+  adaptivePricing?: boolean
 }
 
 /**
@@ -136,6 +143,7 @@ export class CheckoutAPI {
         metadata: options.metadata,
         theme: options.theme,
         locale: options.locale,
+        adaptivePricing: options.adaptivePricing ?? true,
         onSuccess: (subscription: Subscription) => {
           if (options.onSuccess) {
             options.onSuccess(subscription)

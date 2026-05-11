@@ -1,3 +1,4 @@
+"use client";
 import * as React from 'react'
 import { BannerNudge } from './BannerNudge'
 import { ToastNudge } from './ToastNudge'

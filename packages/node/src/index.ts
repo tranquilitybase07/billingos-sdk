@@ -34,8 +34,6 @@ export type {
   Subscription,
   CreateSubscriptionInput,
   UpdateSubscriptionInput,
-  WebhookEvent,
-  WebhookVerificationResult,
 } from './types/index.js';
 
 // Errors

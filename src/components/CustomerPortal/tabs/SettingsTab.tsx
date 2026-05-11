@@ -1,5 +1,5 @@
-import { useForm } from 'react-hook-form'
-import { z } from 'zod'
+"use client";
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Button } from '../../ui/button'
 import { Input } from '../../ui/input'
@@ -9,7 +9,6 @@ import { Skeleton } from '../../ui/skeleton'
 import { cn } from '@/utils/cn'
 import type { PortalCustomer, PortalAddress } from '../../../client/types'
 
-// Country list (simplified)
 const COUNTRIES = [
   { code: 'US', name: 'United States' },
   { code: 'CA', name: 'Canada' },
@@ -22,19 +21,6 @@ const COUNTRIES = [
   { code: 'BR', name: 'Brazil' },
   { code: 'MX', name: 'Mexico' },
 ]
-
-const settingsSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email address'),
-  line1: z.string().optional(),
-  line2: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  postalCode: z.string().optional(),
-  country: z.string().optional(),
-})
-
-type SettingsFormData = z.infer<typeof settingsSchema>
 
 interface SettingsTabProps {
   customer: PortalCustomer
@@ -87,49 +73,74 @@ export function SettingsTab({
   isLoading,
   className,
 }: SettingsTabProps) {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isDirty },
-  } = useForm<SettingsFormData>({
-    defaultValues: {
-      name: customer.name || '',
-      email: customer.email || '',
-      line1: customer.billingAddress?.line1 || '',
-      line2: customer.billingAddress?.line2 || '',
-      city: customer.billingAddress?.city || '',
-      state: customer.billingAddress?.state || '',
-      postalCode: customer.billingAddress?.postalCode || '',
-      country: customer.billingAddress?.country || 'US',
-    },
+  const [values, setValues] = useState({
+    name: customer.name || '',
+    email: customer.email || '',
+    line1: customer.billingAddress?.line1 || '',
+    line2: customer.billingAddress?.line2 || '',
+    city: customer.billingAddress?.city || '',
+    state: customer.billingAddress?.state || '',
+    postalCode: customer.billingAddress?.postalCode || '',
+    country: customer.billingAddress?.country || 'US',
   })
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   if (isLoading) {
     return <SettingsTabSkeleton />
   }
 
-  const onSubmit = (data: SettingsFormData) => {
+  const set = (field: keyof typeof values) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setValues((prev) => ({ ...prev, [field]: e.target.value }))
+    if (errors[field]) setErrors((prev) => { const next = { ...prev }; delete next[field]; return next })
+  }
+
+  const validate = () => {
+    const next: Record<string, string> = {}
+    if (!values.name.trim()) next.name = 'Name is required'
+    if (!values.email.trim()) {
+      next.email = 'Email is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
+      next.email = 'Invalid email address'
+    }
+    return next
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const validationErrors = validate()
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors)
+      return
+    }
+
     const billingAddress: PortalAddress | undefined =
-      data.line1 || data.city || data.state || data.postalCode
+      values.line1 || values.city || values.state || values.postalCode
         ? {
-            line1: data.line1 || '',
-            line2: data.line2,
-            city: data.city || '',
-            state: data.state || '',
-            postalCode: data.postalCode || '',
-            country: data.country || 'US',
+            line1: values.line1,
+            line2: values.line2,
+            city: values.city,
+            state: values.state,
+            postalCode: values.postalCode,
+            country: values.country,
           }
         : undefined
 
-    onSave({
-      name: data.name,
-      email: data.email,
-      billingAddress,
-    })
+    onSave({ name: values.name, email: values.email, billingAddress })
   }
 
+  // Track if any field changed from the original customer data
+  const isDirty =
+    values.name !== (customer.name || '') ||
+    values.email !== (customer.email || '') ||
+    values.line1 !== (customer.billingAddress?.line1 || '') ||
+    values.line2 !== (customer.billingAddress?.line2 || '') ||
+    values.city !== (customer.billingAddress?.city || '') ||
+    values.state !== (customer.billingAddress?.state || '') ||
+    values.postalCode !== (customer.billingAddress?.postalCode || '') ||
+    values.country !== (customer.billingAddress?.country || 'US')
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className={cn('space-y-6', className)}>
+    <form onSubmit={handleSubmit} className={cn('space-y-6', className)}>
       {/* Personal Information */}
       <Card>
         <CardHeader>
@@ -140,11 +151,12 @@ export function SettingsTab({
             <Label htmlFor="name">Name</Label>
             <Input
               id="name"
-              {...register('name')}
+              value={values.name}
+              onChange={set('name')}
               placeholder="Your name"
             />
             {errors.name && (
-              <p className="text-sm text-destructive">{errors.name.message}</p>
+              <p className="text-sm text-destructive">{errors.name}</p>
             )}
           </div>
           <div className="space-y-2">
@@ -152,11 +164,12 @@ export function SettingsTab({
             <Input
               id="email"
               type="email"
-              {...register('email')}
+              value={values.email}
+              onChange={set('email')}
               placeholder="your@email.com"
             />
             {errors.email && (
-              <p className="text-sm text-destructive">{errors.email.message}</p>
+              <p className="text-sm text-destructive">{errors.email}</p>
             )}
           </div>
         </CardContent>
@@ -172,7 +185,8 @@ export function SettingsTab({
             <Label htmlFor="line1">Address Line 1</Label>
             <Input
               id="line1"
-              {...register('line1')}
+              value={values.line1}
+              onChange={set('line1')}
               placeholder="123 Main St"
             />
           </div>
@@ -180,7 +194,8 @@ export function SettingsTab({
             <Label htmlFor="line2">Address Line 2</Label>
             <Input
               id="line2"
-              {...register('line2')}
+              value={values.line2}
+              onChange={set('line2')}
               placeholder="Apt 4B (optional)"
             />
           </div>
@@ -189,7 +204,8 @@ export function SettingsTab({
               <Label htmlFor="city">City</Label>
               <Input
                 id="city"
-                {...register('city')}
+                value={values.city}
+                onChange={set('city')}
                 placeholder="San Francisco"
               />
             </div>
@@ -197,7 +213,8 @@ export function SettingsTab({
               <Label htmlFor="state">State/Province</Label>
               <Input
                 id="state"
-                {...register('state')}
+                value={values.state}
+                onChange={set('state')}
                 placeholder="CA"
               />
             </div>
@@ -207,13 +224,14 @@ export function SettingsTab({
               <Label htmlFor="postalCode">ZIP/Postal Code</Label>
               <Input
                 id="postalCode"
-                {...register('postalCode')}
+                value={values.postalCode}
+                onChange={set('postalCode')}
                 placeholder="94102"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="country">Country</Label>
-              <Select id="country" {...register('country')}>
+              <Select id="country" value={values.country} onChange={set('country')}>
                 {COUNTRIES.map((country) => (
                   <SelectOption key={country.code} value={country.code}>
                     {country.name}

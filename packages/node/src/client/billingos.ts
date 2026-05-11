@@ -35,7 +35,7 @@ export class BillingOS {
     }
 
     this.config = {
-      apiUrl: config.apiUrl || 'http://localhost:3001',
+      apiUrl: this.resolveBaseUrl(config.secretKey, config.apiUrl),
       timeout: config.timeout || 30000,
       maxRetries: config.maxRetries || 3,
       ...config,
@@ -50,6 +50,22 @@ export class BillingOS {
         Authorization: `Bearer ${this.config.secretKey}`,
       },
     });
+  }
+
+  /**
+   * Resolve the API base URL from the secret key prefix.
+   * Priority: explicit apiUrl > BILLINGOS_API_URL env var > auto-detect from key prefix.
+   */
+  private resolveBaseUrl(secretKey: string, explicitUrl?: string): string {
+    if (explicitUrl) return explicitUrl.replace(/\/$/, '');
+
+    const envUrl = process.env.BILLINGOS_API_URL;
+    if (envUrl) return envUrl.replace(/\/$/, '');
+
+    if (secretKey.startsWith('sk_test_')) return 'https://sandbox-api.billingos.dev';
+    if (secretKey.startsWith('sk_live_')) return 'https://api.billingos.dev';
+
+    return 'https://api.billingos.dev';
   }
 
   // ==========================================================================
@@ -309,19 +325,4 @@ export class BillingOS {
     return this.client.get<UsageMetricsResponse>(url);
   }
 
-  // ==========================================================================
-  // Webhooks
-  // ==========================================================================
-
-  /**
-   * Verify a webhook signature
-   *
-   * @example
-   * const isValid = billing.verifyWebhook(req.body, req.headers['billingos-signature']);
-   */
-  verifyWebhook(_payload: any, _signature: string): boolean {
-    // TODO: Implement HMAC signature verification
-    // This will be implemented in the next phase
-    return true;
-  }
 }

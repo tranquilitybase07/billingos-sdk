@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source "../"; /* scan src/ for component utility classes */
 
 /* Define CSS variables for light mode */
 :root {

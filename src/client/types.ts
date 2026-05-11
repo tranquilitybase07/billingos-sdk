@@ -554,6 +554,8 @@ export interface CreateCheckoutSessionInput {
   mode?: 'embedded' | 'redirect'
   successUrl?: string
   cancelUrl?: string
+  /** Enable Stripe Adaptive Pricing — lets customers pay in their local currency (~150 countries). Defaults to true. */
+  adaptivePricing?: boolean
 }
 
 /**
@@ -585,6 +587,7 @@ export interface CheckoutSessionDetails {
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'expired'
   expiresAt: string
   stripeAccountId?: string
+  checkoutMode?: 'standard' | 'adaptive' | 'free'
 }
 
 // =============================================================================
@@ -646,6 +649,8 @@ export interface PricingCurrentSubscription {
   status: 'active' | 'trialing' | 'past_due' | 'canceled'
   currentPeriodEnd: string // ISO 8601
   cancelAtPeriodEnd: boolean
+  interval?: 'month' | 'year' | 'week' | 'day' | null
+  amount?: number | null
 }
 
 /**

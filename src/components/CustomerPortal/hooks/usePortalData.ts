@@ -1,3 +1,4 @@
+"use client";
 import { useQuery, useMutation, useQueryClient, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query'
 import { useBillingOS } from '../../../providers'
 import type {
@@ -34,7 +35,8 @@ export function usePortalData(
 
   return useQuery({
     queryKey: portalKeys.data(),
-    queryFn: () => client.getCustomerPortal(),
+    queryFn: () => client!.getCustomerPortal(),
+    enabled: !!client,
     staleTime: 1000 * 60 * 5, // 5 minutes
     ...options,
   })
@@ -55,8 +57,10 @@ export function useUpdatePortalSubscription(
 
   return useMutation({
     ...options,
-    mutationFn: (input: PortalUpdateSubscriptionInput) =>
-      client.updatePortalSubscription(subscriptionId, input),
+    mutationFn: (input: PortalUpdateSubscriptionInput) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.updatePortalSubscription(subscriptionId, input)
+    },
     onSuccess: (...args) => {
       // Invalidate portal data to refresh subscription info
       queryClient.invalidateQueries({ queryKey: portalKeys.data() })
@@ -80,8 +84,10 @@ export function useCancelPortalSubscription(
 
   return useMutation({
     ...options,
-    mutationFn: (input: PortalCancelSubscriptionInput) =>
-      client.cancelPortalSubscription(subscriptionId, input),
+    mutationFn: (input: PortalCancelSubscriptionInput) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.cancelPortalSubscription(subscriptionId, input)
+    },
     onSuccess: (...args) => {
       // Invalidate portal data to refresh subscription status
       queryClient.invalidateQueries({ queryKey: portalKeys.data() })
@@ -102,7 +108,10 @@ export function useReactivatePortalSubscription(
 
   return useMutation({
     ...options,
-    mutationFn: () => client.reactivatePortalSubscription(subscriptionId),
+    mutationFn: () => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.reactivatePortalSubscription(subscriptionId)
+    },
     onSuccess: (...args) => {
       // Invalidate portal data to refresh subscription status
       queryClient.invalidateQueries({ queryKey: portalKeys.data() })
@@ -121,7 +130,7 @@ export function useSetupIntent(
 
   return useQuery({
     queryKey: portalKeys.setupIntent(),
-    queryFn: () => client.getSetupIntent(),
+    queryFn: () => client!.getSetupIntent(),
     enabled: false, // Only fetch when explicitly requested
     ...options,
   })
@@ -141,7 +150,10 @@ export function useAddPaymentMethod(
 
   return useMutation({
     ...options,
-    mutationFn: (input: AddPaymentMethodInput) => client.addPaymentMethod(input),
+    mutationFn: (input: AddPaymentMethodInput) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.addPaymentMethod(input)
+    },
     onSuccess: (...args) => {
       // Invalidate portal data to refresh payment methods
       queryClient.invalidateQueries({ queryKey: portalKeys.data() })
@@ -161,7 +173,10 @@ export function useRemovePaymentMethod(
 
   return useMutation({
     ...options,
-    mutationFn: (paymentMethodId: string) => client.removePaymentMethod(paymentMethodId),
+    mutationFn: (paymentMethodId: string) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.removePaymentMethod(paymentMethodId)
+    },
     onSuccess: (...args) => {
       // Invalidate portal data to refresh payment methods
       queryClient.invalidateQueries({ queryKey: portalKeys.data() })
@@ -181,7 +196,10 @@ export function useSetDefaultPaymentMethod(
 
   return useMutation({
     ...options,
-    mutationFn: (paymentMethodId: string) => client.setDefaultPaymentMethod(paymentMethodId),
+    mutationFn: (paymentMethodId: string) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.setDefaultPaymentMethod(paymentMethodId)
+    },
     onSuccess: (...args) => {
       // Invalidate portal data to refresh payment methods
       queryClient.invalidateQueries({ queryKey: portalKeys.data() })
@@ -204,8 +222,10 @@ export function useRetryInvoice(
 
   return useMutation({
     ...options,
-    mutationFn: ({ invoiceId, paymentMethodId }) =>
-      client.retryInvoice(invoiceId, paymentMethodId),
+    mutationFn: ({ invoiceId, paymentMethodId }) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.retryInvoice(invoiceId, paymentMethodId)
+    },
     onSuccess: (...args) => {
       // Invalidate portal data to refresh invoice status
       queryClient.invalidateQueries({ queryKey: portalKeys.data() })
@@ -228,7 +248,10 @@ export function useUpdateCustomerBilling(
 
   return useMutation({
     ...options,
-    mutationFn: (input: UpdateCustomerBillingInput) => client.updateCustomerBilling(input),
+    mutationFn: (input: UpdateCustomerBillingInput) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.updateCustomerBilling(input)
+    },
     onSuccess: (...args) => {
       // Invalidate portal data to refresh customer info
       queryClient.invalidateQueries({ queryKey: portalKeys.data() })

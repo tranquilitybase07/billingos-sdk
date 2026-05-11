@@ -1,3 +1,4 @@
+"use client";
 import * as React from 'react'
 import { cn } from '@/utils/cn'
 
@@ -67,90 +68,81 @@ function DialogPortal({ children }: DialogPortalProps) {
   return <>{children}</>
 }
 
-const DialogOverlay = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => {
-  const { onOpenChange } = useDialogContext()
+interface DialogOverlayProps extends React.HTMLAttributes<HTMLDivElement> {
+  dismissible?: boolean
+}
 
-  return (
-    <div
-      ref={ref}
-      onClick={() => onOpenChange(false)}
-      className={cn(
-        'fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-        className
-      )}
-      {...props}
-    />
-  )
-})
-DialogOverlay.displayName = 'DialogOverlay'
+const DialogOverlay = React.forwardRef<HTMLDivElement, DialogOverlayProps>(
+  ({ className, dismissible = true, ...props }, ref) => {
+    const { onOpenChange } = useDialogContext()
 
-const DialogContent = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, children, ...props }, ref) => {
-  const { open, onOpenChange } = useDialogContext()
-
-  // Handle escape key
-  React.useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onOpenChange(false)
-      }
-    }
-    if (open) {
-      document.addEventListener('keydown', handleEscape)
-      document.body.style.overflow = 'hidden'
-    }
-    return () => {
-      document.removeEventListener('keydown', handleEscape)
-      document.body.style.overflow = ''
-    }
-  }, [open, onOpenChange])
-
-  if (!open) return null
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <DialogOverlay />
+    return (
       <div
         ref={ref}
-        onClick={(e) => e.stopPropagation()}
+        onClick={dismissible ? () => onOpenChange(false) : undefined}
         className={cn(
-          'relative z-50 w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg',
+          'fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
           className
         )}
         {...props}
+      />
+    )
+  }
+)
+DialogOverlay.displayName = 'DialogOverlay'
+
+interface DialogContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** When false, outside-click and Escape do not close the dialog. Defaults to true. */
+  dismissible?: boolean
+  /** When true, the dialog is mounted but invisible/non-interactive. Use to preload iframe content before reveal. */
+  visuallyHidden?: boolean
+}
+
+const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
+  ({ className, children, dismissible = true, visuallyHidden = false, ...props }, ref) => {
+    const { open, onOpenChange } = useDialogContext()
+
+    React.useEffect(() => {
+      const handleEscape = (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && dismissible) {
+          onOpenChange(false)
+        }
+      }
+      if (open) {
+        document.addEventListener('keydown', handleEscape)
+        document.body.style.overflow = 'hidden'
+      }
+      return () => {
+        document.removeEventListener('keydown', handleEscape)
+        document.body.style.overflow = ''
+      }
+    }, [open, onOpenChange, dismissible])
+
+    if (!open) return null
+
+    return (
+      <div
+        className={cn(
+          'fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-200',
+          visuallyHidden && 'opacity-0 pointer-events-none',
+        )}
       >
-        {children}
-        <button
-          type="button"
-          onClick={() => onOpenChange(false)}
-          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+        <DialogOverlay dismissible={dismissible} />
+        <div
+          ref={ref}
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            'relative z-50 w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg',
+            className
+          )}
+          {...props}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-4 w-4"
-          >
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
-          </svg>
-          <span className="sr-only">Close</span>
-        </button>
+          {children}
+        </div>
       </div>
-    </div>
-  )
-})
+    )
+  }
+)
 DialogContent.displayName = 'DialogContent'
 
 const DialogHeader = ({

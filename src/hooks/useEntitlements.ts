@@ -1,3 +1,4 @@
+"use client";
 import { useQuery, useMutation, useQueryClient, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query'
 import { useBillingOS } from '../providers'
 import type { Entitlement, UsageEvent, UsageMetrics } from '../client'
@@ -49,8 +50,8 @@ export function useCheckEntitlement(
 
   return useQuery({
     queryKey: entitlementKeys.check(customerId, featureKey),
-    queryFn: () => client.checkEntitlement({ customer_id: customerId, feature_key: featureKey }),
-    enabled: !!customerId && !!featureKey,
+    queryFn: () => client!.checkEntitlement({ customer_id: customerId, feature_key: featureKey }),
+    enabled: !!client && !!customerId && !!featureKey,
     staleTime: 1000 * 60, // 1 minute (entitlements are cached server-side)
     ...options,
   })
@@ -120,8 +121,8 @@ export function useEntitlements(
 
   return useQuery({
     queryKey: entitlementKeys.list(customerId),
-    queryFn: () => client.listEntitlements(customerId),
-    enabled: !!customerId,
+    queryFn: () => client!.listEntitlements(customerId),
+    enabled: !!client && !!customerId,
     ...options,
   })
 }
@@ -164,7 +165,10 @@ export function useTrackUsage(
 
   return useMutation({
     ...options,
-    mutationFn: (event: UsageEvent) => client.trackUsage(event),
+    mutationFn: (event: UsageEvent) => {
+      if (!client) throw new Error('[BillingOS] No active session')
+      return client.trackUsage(event)
+    },
     onSuccess: (_data, variables, _context) => {
       // Invalidate usage metrics for this feature
       queryClient.invalidateQueries({
@@ -219,8 +223,8 @@ export function useUsageMetrics(
 
   return useQuery({
     queryKey: entitlementKeys.usage(customerId, featureKey),
-    queryFn: () => client.getUsageMetrics(customerId, featureKey),
-    enabled: !!customerId && !!featureKey,
+    queryFn: () => client!.getUsageMetrics(customerId, featureKey),
+    enabled: !!client && !!customerId && !!featureKey,
     ...options,
   })
 }

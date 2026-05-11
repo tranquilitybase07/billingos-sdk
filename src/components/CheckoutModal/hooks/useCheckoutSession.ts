@@ -1,25 +1,30 @@
-import { useState, useEffect } from 'react'
-import { useBillingOS } from '../../../providers/BillingOSProvider'
+"use client";
+import { useState, useEffect, useRef } from "react";
+import { useBillingOS } from "../../../providers/BillingOSProvider";
+import type { AppearanceConfig } from "../../../types/appearance";
+import { serializeAppearanceToParams } from "../../../types/appearance";
 
 interface UseCheckoutSessionOptions {
-  enabled: boolean
-  priceId: string
+  enabled: boolean;
+  priceId: string;
   customer?: {
-    email?: string
-    name?: string
-    taxId?: string
-  }
-  couponCode?: string
-  metadata?: Record<string, string>
-  existingSubscriptionId?: string
+    email?: string;
+    name?: string;
+    taxId?: string;
+  };
+  couponCode?: string;
+  metadata?: Record<string, string>;
+  existingSubscriptionId?: string;
+  adaptivePricing?: boolean;
+  appearance?: AppearanceConfig;
 }
 
 interface UseCheckoutSessionReturn {
-  sessionId: string | null
-  sessionUrl: string | null
-  loading: boolean
-  error: Error | null
-  refresh: () => Promise<void>
+  sessionId: string | null;
+  sessionUrl: string | null;
+  loading: boolean;
+  error: Error | null;
+  refresh: () => Promise<void>;
 }
 
 export function useCheckoutSession({
@@ -28,25 +33,32 @@ export function useCheckoutSession({
   customer,
   couponCode,
   metadata,
-  existingSubscriptionId
+  existingSubscriptionId,
+  adaptivePricing = true,
+  appearance,
 }: UseCheckoutSessionOptions): UseCheckoutSessionReturn {
-  const { client } = useBillingOS()
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const [sessionUrl, setSessionUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
+  const { client, appUrl, debug } = useBillingOS();
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionUrl, setSessionUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  // Track which priceId we've already initiated a session for.
+  // Using a ref instead of state so React Strict Mode's double-mount
+  // doesn't reset it between the first and second effect invocation,
+  // preventing the duplicate checkout session creation.
+  const initiatedForPriceRef = useRef<string | null>(null);
 
   const createSession = async () => {
-    if (!enabled || !priceId) return
+    if (!enabled || !priceId || !client) return;
 
-    console.log(
-      '%c🔄 Creating checkout session...',
-      'color: #3b82f6; font-weight: 600;',
-      { priceId, customer }
-    )
+    if (debug)
+      console.log("[BillingOS] Creating checkout session...", {
+        priceId,
+        customer,
+      });
 
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
       // Create checkout session via API
@@ -57,43 +69,45 @@ export function useCheckoutSession({
         metadata,
         existingSubscriptionId,
         // Return URLs will be handled by postMessage instead
-        mode: 'embedded'
-      })
+        mode: "embedded",
+        adaptivePricing,
+      });
 
-      setSessionId(session.id)
-      console.log(
-        '%c✨ Session created!',
-        'color: #10b981; font-weight: 600;',
-        `ID: ${session.id}`
-      )
+      setSessionId(session.id);
+      if (debug)
+        console.log("[BillingOS] Checkout session created:", session.id);
 
-      // Generate iframe URL
-      // The iframe should always load from the BillingOS web app, not the merchant's app
-      // In production, this would be your BillingOS domain (e.g., https://app.billingos.com)
-      const billingOSAppUrl = process.env.NEXT_PUBLIC_BILLINGOS_APP_URL || 'http://localhost:3000'
-      const iframeUrl = `${billingOSAppUrl}/embed/checkout/${session.id}`
-      setSessionUrl(iframeUrl)
+      // Generate iframe URL using appUrl from BillingOSProvider context
+      const params = serializeAppearanceToParams(appearance);
+      const query = params.toString();
+      const iframeUrl = `${appUrl}/embed/checkout/${session.id}${query ? '?' + query : ''}`;
+      setSessionUrl(iframeUrl);
 
-      console.log(
-        '%c📍 Iframe URL ready',
-        'color: #8b5cf6; font-weight: 600;',
-        iframeUrl
-      )
+      if (debug) console.log("[BillingOS] Iframe URL:", iframeUrl);
     } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to create checkout session')
-      setError(error)
-      console.error('[useCheckoutSession] Error creating session:', error)
+      const error =
+        err instanceof Error
+          ? err
+          : new Error("Failed to create checkout session");
+      setError(error);
+      console.error("[useCheckoutSession] Error creating session:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  // Create session when enabled
+  // Create session when enabled AND client is ready.
+  // Guard with a ref so React Strict Mode's double-invocation of effects
+  // doesn't fire two simultaneous API calls (state resets between mounts
+  // but refs persist, so the second effect sees the guard and skips).
+  // Also depends on client so it re-runs when the session token arrives.
   useEffect(() => {
-    if (enabled && !sessionId) {
-      createSession()
+    if (enabled && client && initiatedForPriceRef.current !== priceId) {
+      initiatedForPriceRef.current = priceId;
+      createSession();
     }
-  }, [enabled, priceId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, priceId, client]);
 
   // Cleanup session when component unmounts
   useEffect(() => {
@@ -102,20 +116,20 @@ export function useCheckoutSession({
         // Optionally cancel the session if not completed
         // client.checkout.cancelSession(sessionId).catch(() => {})
       }
-    }
-  }, [sessionId])
+    };
+  }, [sessionId]);
 
   const refresh = async () => {
-    setSessionId(null)
-    setSessionUrl(null)
-    await createSession()
-  }
+    setSessionId(null);
+    setSessionUrl(null);
+    await createSession();
+  };
 
   return {
     sessionId,
     sessionUrl,
     loading,
     error,
-    refresh
-  }
+    refresh,
+  };
 }

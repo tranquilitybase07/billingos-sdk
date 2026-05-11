@@ -1,10 +1,14 @@
+"use client";
 import { useState, useEffect } from 'react'
 import { useBillingOS } from '../../../providers/BillingOSProvider'
+import type { AppearanceConfig } from '../../../types/appearance'
+import { serializeAppearanceToParams } from '../../../types/appearance'
 
 interface UsePortalSessionOptions {
   enabled: boolean
   customerId?: string
   metadata?: Record<string, any>
+  appearance?: AppearanceConfig
 }
 
 interface UsePortalSessionReturn {
@@ -18,21 +22,19 @@ interface UsePortalSessionReturn {
 export function usePortalSession({
   enabled,
   customerId,
-  metadata
+  metadata,
+  appearance,
 }: UsePortalSessionOptions): UsePortalSessionReturn {
-  const { client } = useBillingOS()
+  const { client, appUrl, debug } = useBillingOS()
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionUrl, setSessionUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
   const createSession = async () => {
-    if (!enabled) return
+    if (!enabled || !client) return
 
-    console.log(
-      '%c🔄 Creating portal session...',
-      'color: #3b82f6; font-weight: 600;'
-    )
+    if (debug) console.log('[BillingOS] Creating portal session...')
 
     setLoading(true)
     setError(null)
@@ -45,22 +47,15 @@ export function usePortalSession({
       })
 
       setSessionId(session.id)
-      console.log(
-        '%c✨ Portal session created!',
-        'color: #10b981; font-weight: 600;',
-        `ID: ${session.id}`
-      )
+      if (debug) console.log('[BillingOS] Portal session created:', session.id)
 
-      // Generate iframe URL
-      const billingOSAppUrl = process.env.NEXT_PUBLIC_BILLINGOS_APP_URL || 'http://localhost:3000'
-      const iframeUrl = `${billingOSAppUrl}/embed/portal/${session.id}`
+      // Generate iframe URL using appUrl from BillingOSProvider context
+      const params = serializeAppearanceToParams(appearance)
+      const query = params.toString()
+      const iframeUrl = `${appUrl}/embed/portal/${session.id}${query ? '?' + query : ''}`
       setSessionUrl(iframeUrl)
 
-      console.log(
-        '%c📍 Iframe URL ready',
-        'color: #8b5cf6; font-weight: 600;',
-        iframeUrl
-      )
+      if (debug) console.log('[BillingOS] Iframe URL:', iframeUrl)
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to create portal session')
       setError(error)
@@ -70,12 +65,15 @@ export function usePortalSession({
     }
   }
 
-  // Create session when enabled
+  // Create session when enabled AND client is ready.
+  // client starts as null while the session token is being fetched (sessionTokenUrl),
+  // so we depend on client to re-run when the token arrives.
   useEffect(() => {
-    if (enabled && !sessionId) {
+    if (enabled && client && !sessionId) {
       createSession()
     }
-  }, [enabled])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, client])
 
   // Cleanup session when component unmounts
   useEffect(() => {

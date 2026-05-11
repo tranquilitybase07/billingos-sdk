@@ -1,4 +1,6 @@
+"use client";
 import { useEffect, useCallback, RefObject } from 'react'
+import type { AppearanceVariables } from '../../../types/appearance'
 
 export interface IframeMessage {
   type:
@@ -22,6 +24,7 @@ export interface ParentMessage {
     theme?: 'light' | 'dark' | 'auto'
     locale?: string
     defaultTab?: string
+    variables?: AppearanceVariables
   }
   payload?: any
 }
