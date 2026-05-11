@@ -270,7 +270,7 @@ export function CustomerPortal({
       ) : (
         <>
           {showSpinner && (
-            <div className={cn('absolute inset-0 flex items-center justify-center z-10', isDark ? 'bg-[#141415]' : 'bg-white')}>
+            <div className={cn('absolute inset-0 flex items-center justify-center z-10', isDark ? 'bg-neutral-950' : 'bg-white')}>
               <div className="flex flex-col items-center gap-3">
                 <div className={cn('animate-spin rounded-full h-10 w-10 border-[3px]', isDark ? 'border-neutral-700 border-t-neutral-300' : 'border-neutral-200 border-t-neutral-600')} />
                 <p className={cn('text-sm font-medium', isDark ? 'text-neutral-400' : 'text-neutral-500')}>Loading...</p>

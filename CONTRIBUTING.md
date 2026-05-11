@@ -8,8 +8,8 @@ This guide walks you through setting up local development so you can work on the
 
 The SDK is a separate repo from your app. To test changes locally you need to:
 
-1. **Watch the SDK** — a build tool (tsup) watches your source files and rebuilds `dist/` whenever you save
-2. **Link the SDK into your app** — instead of installing from npm, your app gets a live symlink that always points at the latest build
+1. **Watch the SDK** — `tsup --watch` rebuilds `dist/` whenever you save a source file
+2. **Link the SDK into your app** — instead of installing from npm, your app gets a real filesystem symlink to the SDK repo so it always reads the latest `dist/`
 3. **Tell Next.js to watch outside its own folder** — by default Next.js ignores files outside the project directory, including symlinked packages
 
 ---
@@ -47,33 +47,59 @@ You'll see output like `dist/index.mjs built in 300ms` — that means it's worki
 
 ## Step 3 — Link the SDK into your Next.js app
 
-Run these commands from inside your **Next.js app's** directory. Adjust the path to match where you cloned the SDK.
+There are two ways. **Workspace overrides are recommended** because they're persistent in version control and don't pollute global pnpm state.
+
+### Option A — `pnpm-workspace.yaml` overrides (recommended)
+
+If your app already has a `pnpm-workspace.yaml`, add an `overrides` block. If it doesn't, create one in the project root:
+
+```yaml
+# pnpm-workspace.yaml
+packages:
+  - "."
+
+overrides:
+  "@billingos/sdk": link:../path/to/billingos-sdk
+  "@billingos/node": link:../path/to/billingos-sdk/packages/node
+```
+
+Then reinstall:
 
 ```bash
-# Link the React SDK
+pnpm install
+```
+
+> **Important — the override keys must be the *scoped* package names** (`@billingos/sdk`, `@billingos/node`), not the folder names (`billingos-sdk`, `node`). pnpm matches overrides by package name, not by directory. If the keys are wrong, the override silently does nothing and your app keeps the npm version.
+
+**Example** — if your app sits at `~/Code/myapp/web` and the SDK at `~/Code/billingos-sdk`, the relative paths are:
+
+```yaml
+overrides:
+  "@billingos/sdk": link:../../billingos-sdk
+  "@billingos/node": link:../../billingos-sdk/packages/node
+```
+
+Verify the link took effect:
+
+```bash
+ls -la node_modules/@billingos/sdk
+# should print: ... -> ../../../../billingos-sdk
+```
+
+### Option B — `pnpm link` (one-off / global)
+
+Run from inside your **Next.js app's** directory:
+
+```bash
 pnpm link /path/to/billingos-sdk
-
-# Link the Node SDK (only needed if your app uses @billingos/node in API routes)
-pnpm link /path/to/billingos-sdk/packages/node
+pnpm link /path/to/billingos-sdk/packages/node   # only if you use @billingos/node
 ```
 
-**Example** — if both repos sit side-by-side in the same folder:
+Use this when you don't want to edit your app's `pnpm-workspace.yaml` — for example, when poking at someone else's app for a one-time repro. It registers the link in pnpm's global store and won't survive a clean `pnpm install` unless you re-run `pnpm link` afterward.
 
-```
-~/Code/
-  billingos-sdk/       ← SDK repo
-  my-nextjs-app/       ← your app
-```
-
-```bash
-cd ~/Code/my-nextjs-app
-pnpm link ../billingos-sdk
-pnpm link ../billingos-sdk/packages/node
-```
-
-> **Why `pnpm link` and not `file:` in package.json?**
+> **Why not `file:` in `package.json`?**
 >
-> `file:` references copy the package into pnpm's internal cache at install time. That snapshot goes stale — even after tsup rebuilds, your app keeps loading the old copy. `pnpm link` creates a real filesystem symlink, so your app always reads the latest build directly. No reinstall needed.
+> `file:` references *copy* the package into pnpm's content-addressed store at install time. That snapshot goes stale — even after `tsup` rebuilds, your app keeps loading the old copy until you `pnpm install --force`. Both `link:` (Option A) and `pnpm link` (Option B) create real filesystem symlinks, so your app always reads the latest build directly.
 
 ---
 
@@ -83,7 +109,7 @@ By default, Next.js only watches files inside its own project folder and ignores
 
 Open (or create) `next.config.ts` in your Next.js app:
 
-**Next.js 15+ with Turbopack** (`next dev --turbopack` or Next.js 15 default):
+**Next.js 15+ with Turbopack** (`next dev --turbopack` or Next.js 15+ default):
 
 ```ts
 import type { NextConfig } from 'next'
@@ -94,8 +120,8 @@ const nextConfig: NextConfig = {
   turbopack: {
     // Tell Turbopack to watch the parent folder so it can see
     // the symlinked SDK outside this project's directory.
-    // Set this to the folder that contains BOTH your app and the SDK.
-    root: path.join(__dirname, '..'),
+    // Set this to a folder that contains BOTH your app and the SDK.
+    root: path.join(__dirname, '..', '..'),
   },
 }
 
@@ -147,7 +173,7 @@ Once setup is complete, your daily workflow is just two terminals:
 | 1 (SDK repo) | `pnpm dev` | Rebuilds `dist/` on every save |
 | 2 (Next.js app) | `pnpm dev` | Hot-reloads when `dist/` changes |
 
-Edit any SDK source file → tsup rebuilds → Next.js hot-reloads. No manual steps.
+Edit any SDK source file → `tsup` rebuilds → Next.js hot-reloads. No manual steps.
 
 ---
 
@@ -155,13 +181,19 @@ Edit any SDK source file → tsup rebuilds → Next.js hot-reloads. No manual st
 
 **Changes aren't showing up in the app**
 
-1. Check the SDK terminal — confirm tsup printed a rebuild message after your save
-2. If yes, delete `.next` in your app and restart `pnpm dev`
-3. Make sure you used `pnpm link` (not `pnpm add @billingos/sdk@file:...`) — the `file:` approach snapshots the build and won't pick up new changes
+1. Check the SDK terminal — confirm `tsup` printed a rebuild message after your save.
+2. If yes, delete `.next` in your app and restart `pnpm dev`.
+3. Verify the symlink: `ls -la node_modules/@billingos/sdk` should resolve to your SDK repo, **not** to `.pnpm/@billingos+sdk@<version>` (which means you're still on the npm copy).
+4. If you're using `pnpm-workspace.yaml` overrides, double-check the override keys are the **scoped names** (`@billingos/sdk`, not `billingos-sdk`). Wrong keys silently no-op.
+5. If you ever did `pnpm add @billingos/sdk@file:...`, that snapshots the build and won't pick up new changes — switch to one of the link approaches in Step 3.
 
 **`Module not found: Can't resolve '@billingos/sdk'`**
 
-You haven't linked the package yet. Run `pnpm link /path/to/billingos-sdk` from inside your Next.js app directory (Step 3 above).
+You haven't linked the package yet, or the link broke after a reinstall. Re-run Step 3.
+
+**Turbopack: "the project root is outside …"**
+
+Your `turbopack.root` doesn't reach far enough. Set it to a directory that contains *both* your app and the SDK (e.g. `path.join(__dirname, '..', '..')` if both repos sit two levels above your app).
 
 **Peer dependency warnings from pnpm**
 

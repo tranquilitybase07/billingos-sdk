@@ -5,7 +5,7 @@ import { CheckoutIframe } from './CheckoutIframe'
 import { useCheckoutSession } from './hooks/useCheckoutSession'
 import { useIframeMessaging } from './hooks/useIframeMessaging'
 import { useBillingOS } from '../../providers/BillingOSProvider'
-import type { IframeMessage } from './utils/messaging'
+import type { IframeMessage, PaymentFailureDetails } from './utils/messaging'
 import { cn } from '../../utils/cn'
 
 export interface CheckoutModalProps {
@@ -79,14 +79,30 @@ export interface CheckoutModalProps {
   onSuccess: (subscription: any) => void
 
   /**
-   * Error callback
+   * Error callback for *terminal* failures only — session expired,
+   * irrecoverable network failure, or polling exhaustion. Triggers the
+   * fatal error screen.
    */
   onError?: (error: Error) => void
+
+  /**
+   * Recoverable payment failure (declined card, wrong CVC, 3DS auth failed,
+   * etc). The checkout form stays mounted and the user can retry inline.
+   * Use this to log/track failed attempts; do not reuse it to display your
+   * own UI — the iframe already shows a contextual inline error.
+   */
+  onPaymentFailed?: (details: PaymentFailureDetails) => void
 
   /**
    * Cancel callback when user closes without completing
    */
   onCancel?: () => void
+
+  /**
+   * Fires when the iframe is mounted and ready to interact. Use this to
+   * clear external loading indicators (e.g. a button loader on the trigger).
+   */
+  onReady?: () => void
 
   /**
    * Debug mode for development
@@ -115,7 +131,9 @@ export function CheckoutModal({
   locale = 'en',
   onSuccess,
   onError,
+  onPaymentFailed,
   onCancel,
+  onReady,
   debug = false,
   adaptivePricing = true,
   accentColor: accentColorProp,
@@ -189,6 +207,20 @@ export function CheckoutModal({
         onError?.(error)
         break
 
+      case 'PAYMENT_FAILED':
+        // Recoverable — the iframe already shows an inline banner with
+        // friendly copy. Don't flip to the fatal error screen. Drop back
+        // from 'processing' to 'ready' so any parent overlay clears and
+        // the user can interact with the form to retry.
+        setState('ready')
+        onPaymentFailed?.({
+          message: message.payload?.message || message.payload?.error || 'Payment failed',
+          code: message.payload?.code,
+          declineCode: message.payload?.declineCode,
+          type: message.payload?.type,
+        })
+        break
+
       case 'CHECKOUT_CLOSE':
         onCancel?.()
         onOpenChange(false)
@@ -207,7 +239,7 @@ export function CheckoutModal({
       default:
         break
     }
-  }, [isDebug, onSuccess, onError, onCancel, onOpenChange])
+  }, [isDebug, onSuccess, onError, onPaymentFailed, onCancel, onOpenChange])
 
   const { sendMessage } = useIframeMessaging({
     iframeRef,
@@ -256,9 +288,18 @@ export function CheckoutModal({
   const showSpinner = loading || state === 'loading'
   const showError = state === 'error' && error
 
+  useEffect(() => {
+    if (!open) return
+    if (state === 'ready' || state === 'error') {
+      onReady?.()
+    }
+  }, [open, state, onReady])
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        dismissible={false}
+        visuallyHidden={showSpinner && !showError}
         className={cn(
           "max-w-[800px] w-full p-0 overflow-hidden",
           "min-h-[600px] max-h-[90vh] relative",
@@ -266,7 +307,7 @@ export function CheckoutModal({
         )}
       >
         {showError ? (
-          <div className={cn("p-8 text-center", theme === 'dark' ? 'bg-[#141415]' : 'bg-white')}>
+          <div className={cn("p-8 text-center", theme === 'dark' ? 'bg-neutral-950' : 'bg-white')}>
             <div className="text-red-600 mb-2">
               <svg
                 className="w-12 h-12 mx-auto"
@@ -288,7 +329,7 @@ export function CheckoutModal({
               onClick={() => onOpenChange(false)}
               className={cn(
                 "mt-4 px-4 py-2 rounded-md",
-                theme === 'dark' ? 'bg-[#242426] text-gray-200 hover:bg-[#2e2e30]' : 'bg-gray-200 hover:bg-gray-300'
+                theme === 'dark' ? 'bg-neutral-900 text-neutral-200 hover:bg-neutral-800' : 'bg-gray-200 hover:bg-gray-300'
               )}
             >
               Close
@@ -296,17 +337,6 @@ export function CheckoutModal({
           </div>
         ) : (
           <>
-            {showSpinner && (
-              <div className="absolute inset-0 flex items-center justify-center z-10">
-                <div className={cn(
-                  "animate-spin rounded-full h-10 w-10 border-[3px]",
-                  theme === 'dark'
-                    ? 'border-white/20 border-t-white'
-                    : 'border-black/10 border-t-black/60'
-                )}></div>
-              </div>
-            )}
-
             {sessionUrl && (
               <CheckoutIframe
                 ref={iframeRef}

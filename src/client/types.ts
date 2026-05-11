@@ -649,6 +649,8 @@ export interface PricingCurrentSubscription {
   status: 'active' | 'trialing' | 'past_due' | 'canceled'
   currentPeriodEnd: string // ISO 8601
   cancelAtPeriodEnd: boolean
+  interval?: 'month' | 'year' | 'week' | 'day' | null
+  amount?: number | null
 }
 
 /**

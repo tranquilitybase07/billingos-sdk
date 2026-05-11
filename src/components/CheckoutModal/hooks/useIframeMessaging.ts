@@ -56,7 +56,12 @@ export function useIframeMessaging({
       }
 
       // Check if this is a checkout message
-      if (!event.data.type.startsWith('CHECKOUT_') && event.data.type !== 'HEIGHT_CHANGED' && event.data.type !== 'PROCESSING') {
+      if (
+        !event.data.type.startsWith('CHECKOUT_') &&
+        event.data.type !== 'HEIGHT_CHANGED' &&
+        event.data.type !== 'PROCESSING' &&
+        event.data.type !== 'PAYMENT_FAILED'
+      ) {
         return
       }
 

@@ -16,6 +16,18 @@ export interface ParentMessage {
 }
 
 /**
+ * Recoverable payment failure surfaced inline in the iframe (declined card,
+ * wrong CVC, 3DS auth failure, etc). The form stays mounted; this is purely
+ * an analytics/observability hook for the host app.
+ */
+export interface PaymentFailureDetails {
+  message: string
+  code?: string
+  declineCode?: string
+  type?: string
+}
+
+/**
  * Message types for iframe-to-parent communication
  */
 export interface IframeMessage {
@@ -26,12 +38,18 @@ export interface IframeMessage {
     | 'CHECKOUT_CLOSE'
     | 'HEIGHT_CHANGED'
     | 'PROCESSING'
+    | 'PAYMENT_FAILED'
     | '3DS_REQUIRED'
   payload?: {
     subscription?: any
     error?: string
     height?: number
     threeDSecureUrl?: string
+    // PAYMENT_FAILED payload
+    message?: string
+    code?: string
+    declineCode?: string
+    type?: string
   }
 }
 
@@ -82,6 +100,7 @@ export function isIframeMessage(message: any): message is IframeMessage {
       'CHECKOUT_CLOSE',
       'HEIGHT_CHANGED',
       'PROCESSING',
+      'PAYMENT_FAILED',
       '3DS_REQUIRED'
     ].includes(message.type)
   )
