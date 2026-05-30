@@ -25,7 +25,7 @@ export function usePortalSession({
   metadata,
   appearance,
 }: UsePortalSessionOptions): UsePortalSessionReturn {
-  const { client, appUrl, debug } = useBillingOS()
+  const { client, appUrl, environment, debug } = useBillingOS()
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionUrl, setSessionUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -49,8 +49,9 @@ export function usePortalSession({
       setSessionId(session.id)
       if (debug) console.log('[BillingOS] Portal session created:', session.id)
 
-      // Generate iframe URL using appUrl from BillingOSProvider context
-      const params = serializeAppearanceToParams(appearance)
+      // Generate iframe URL using appUrl from BillingOSProvider context.
+       const params = serializeAppearanceToParams(appearance)
+      params.set("env", environment)
       const query = params.toString()
       const iframeUrl = `${appUrl}/embed/portal/${session.id}${query ? '?' + query : ''}`
       setSessionUrl(iframeUrl)

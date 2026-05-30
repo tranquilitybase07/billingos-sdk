@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useMemo } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BillingOSClient, BillingOSClientOptions } from '../client'
 import { useSessionToken, UseSessionTokenOptions } from '../hooks/useSessionToken'
-import { resolveApiUrl, resolveAppUrl, resolveApiUrlFromToken, BILLINGOS_APP_URL } from '../utils/urls'
+import { resolveApiUrl, resolveAppUrl, resolveApiUrlFromToken, detectEnvironmentFromToken, BILLINGOS_APP_URL } from '../utils/urls'
 import type { AppearanceConfig } from '../types/appearance'
 import { sanitizeAppearance, buildCSSVariables, resolveAppearanceVariables } from '../types/appearance'
 import { injectStyles } from '../styles/inject'
@@ -15,6 +15,12 @@ export interface BillingOSContextValue {
   client: BillingOSClient | null
   apiUrl: string
   appUrl: string
+  /**
+   * Environment derived from the session token prefix ('test' | 'live').
+   * Passed to embed iframes (checkout/portal) via the `env` query param so the
+   * embed resolves the correct API host for the session's environment.
+   */
+  environment: 'test' | 'live'
   customerId?: string
   customerEmail?: string
   customerName?: string
@@ -153,6 +159,14 @@ export function BillingOSProvider({
     return BILLINGOS_APP_URL
   }, [appUrlProp, hasAppUrlOverride])
 
+  // Environment from the token prefix — drives the `env` param on embed
+  // iframe URLs so the embed hits the right API host. Defaults to 'live'
+  // while the token is still loading.
+  const environment = useMemo(
+    () => (token ? detectEnvironmentFromToken(token) : 'live'),
+    [token],
+  )
+
   const qc = useMemo(
     () => queryClient || createDefaultQueryClient(),
     [queryClient]
@@ -171,6 +185,7 @@ export function BillingOSProvider({
       client,
       apiUrl,
       appUrl,
+      environment,
       customerId,
       customerEmail,
       customerName,
@@ -178,7 +193,7 @@ export function BillingOSProvider({
       appearance,
       debug,
     }),
-    [client, apiUrl, appUrl, customerId, customerEmail, customerName, organizationId, appearance, debug]
+    [client, apiUrl, appUrl, environment, customerId, customerEmail, customerName, organizationId, appearance, debug]
   )
 
   const hasCssVars = Object.keys(cssVars).length > 0
