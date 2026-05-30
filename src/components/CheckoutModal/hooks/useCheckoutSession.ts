@@ -37,7 +37,7 @@ export function useCheckoutSession({
   adaptivePricing = true,
   appearance,
 }: UseCheckoutSessionOptions): UseCheckoutSessionReturn {
-  const { client, appUrl, debug } = useBillingOS();
+  const { client, appUrl, environment, debug } = useBillingOS();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionUrl, setSessionUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -77,10 +77,11 @@ export function useCheckoutSession({
       if (debug)
         console.log("[BillingOS] Checkout session created:", session.id);
 
-      // Generate iframe URL using appUrl from BillingOSProvider context
+      // Generate iframe URL using appUrl from BillingOSProvider context.
       const params = serializeAppearanceToParams(appearance);
+      params.set("env", environment);
       const query = params.toString();
-      const iframeUrl = `${appUrl}/embed/checkout/${session.id}${query ? '?' + query : ''}`;
+      const iframeUrl = `${appUrl}/embed/checkout/${session.id}${query ? "?" + query : ""}`;
       setSessionUrl(iframeUrl);
 
       if (debug) console.log("[BillingOS] Iframe URL:", iframeUrl);
